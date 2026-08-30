@@ -13,7 +13,7 @@
   const PROGRESS_KEY = "peleas-robots-progress-v1";
   const GOLD_WIN = 80;
   const START_GOLD = 40;
-  const START_OWNED = ["titanio", "chispa", "martillo", "voltio", "hielo", "grunt"];
+  const START_OWNED = ["titanio", "chispa", "martillo", "voltio", "hielo", "grunt", "oxido"];
 
   const PRESETS = [
     {
@@ -117,6 +117,20 @@
       h: 176,
     },
     {
+      id: "oxido",
+      name: "Oxido",
+      color: "#b45309",
+      body: "pesado",
+      fuerza: 10,
+      velocidad: 3,
+      resistencia: 9,
+      role: "Bola de demolicion. Lenta, oxidada, aplasta.",
+      price: 200,
+      art: true,
+      w: 120,
+      h: 180,
+    },
+    {
       id: "sierra",
       name: "Sierra",
       color: "#fb923c",
@@ -159,6 +173,7 @@
     { id: "desierto", name: "Desierto" },
     { id: "cancha", name: "Cancha", photo: true },
     { id: "concierto", name: "Concierto", photo: true },
+    { id: "metro", name: "Metro", photo: true },
     { id: "puerto", name: "Puerto" },
   ];
 
@@ -179,6 +194,9 @@
     hieloFight: loadImg("assets/hielo.png"),
     gruntThumb: loadImg("assets/thumb-grunt.jpg"),
     gruntFight: loadImg("assets/fight-grunt.jpg"),
+    oxidoThumb: loadImg("assets/thumb-oxido.jpg"),
+    oxidoFight: loadImg("assets/fight-oxido.jpg"),
+    metro: loadImg("assets/arena-metro.jpg"),
   };
   SHOP[0].thumbImg = IMAGES.orugaThumb;
   SHOP[0].spriteImg = IMAGES.orugaFight;
@@ -190,6 +208,9 @@
   var gruntDef = SHOP.filter(function (s) { return s.id === "grunt"; })[0];
   gruntDef.thumbImg = IMAGES.gruntThumb;
   gruntDef.spriteImg = IMAGES.gruntFight;
+  var oxidoDef = SHOP.filter(function (s) { return s.id === "oxido"; })[0];
+  oxidoDef.thumbImg = IMAGES.oxidoThumb;
+  oxidoDef.spriteImg = IMAGES.oxidoFight;
 
   const BODY = {
     tanque: { w: 96, h: 168, fist: 24, leg: 20, label: "Tanque" },
@@ -631,6 +652,58 @@
       ctx.fillRect(-dw / 2, -dh + 6, dw, dh);
     }
     ctx.globalCompositeOperation = "source-over";
+    if (f.id === "oxido") drawWreckingBall(ctx, f, t, dw, dh, state, atk);
+    ctx.restore();
+  }
+
+  function drawWreckingBall(ctx, f, t, dw, dh, state, atk) {
+    var punch = 0, kick = 0;
+    if (state === "punch" && atk) {
+      if (atk.t < atk.wind) punch = atk.t / atk.wind * 0.4;
+      else if (atk.t < atk.wind + atk.active) punch = 0.4 + 0.6 * Math.min(1, (atk.t - atk.wind) / Math.max(0.01, atk.active));
+      else punch = Math.max(0, 1 - (atk.t - atk.wind - atk.active) / Math.max(0.01, atk.rec));
+    }
+    if (state === "kick" && atk) {
+      if (atk.t < atk.wind) kick = atk.t / atk.wind * 0.4;
+      else if (atk.t < atk.wind + atk.active) kick = 0.4 + 0.6 * Math.min(1, (atk.t - atk.wind) / Math.max(0.01, atk.active));
+      else kick = Math.max(0, 1 - (atk.t - atk.wind - atk.active) / Math.max(0.01, atk.rec));
+    }
+    var swing = Math.sin(t * 3) * 0.12;
+    var ang = -0.5 + swing - punch * 1.35 + kick * 0.9;
+    var len = 70 + punch * 90 + kick * 50;
+    var x0 = dw * 0.18;
+    var y0 = -dh * 0.42;
+    ctx.save();
+    ctx.translate(x0, y0);
+    ctx.rotate(ang);
+    ctx.strokeStyle = "#6b4f3a";
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, len);
+    ctx.stroke();
+    ctx.strokeStyle = "#a8a29e";
+    ctx.lineWidth = 2;
+    for (var i = 0; i < 6; i++) {
+      var yy = 10 + i * (len / 6);
+      ctx.beginPath();
+      ctx.arc(0, yy, 5, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    var r = 28 + punch * 8;
+    var grd = ctx.createRadialGradient(-8, len - 6, 4, 0, len, r);
+    grd.addColorStop(0, "#d6a06a");
+    grd.addColorStop(0.45, "#92400e");
+    grd.addColorStop(1, "#431407");
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.arc(0, len, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#44403c";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.fillStyle = "#78350f";
+    ctx.fillRect(-6, len - 6, 12, 12);
     ctx.restore();
   }
 
@@ -1032,8 +1105,9 @@
       hitFlash: 0,
       stunLeft: 0,
       invuln: 0,
-      w: def.w || b.w,
-      h: def.h || b.h,
+      w: (def.w || b.w) * 2,
+      h: (def.h || b.h) * 2,
+      drawScale: def.art ? 1 : 2,
       combo: 0,
       phase: Math.random() * 10,
     };
@@ -1064,6 +1138,7 @@
     if (f.body === "tanque" && kind === "punch") r += 10;
     if (f.body === "agil") r -= 4;
     if (f.id === "oruga" || f.id === "caldera" || f.id === "hielo" || f.id === "grunt") r += 36;
+    if (f.id === "oxido") r += 70;
     return r;
   }
 
@@ -1557,6 +1632,17 @@
     ctx.fillRect(0, GROUND, W, 4);
   }
 
+  function drawArenaMetro(ctx) {
+    if (!coverPhoto(ctx, IMAGES.metro)) {
+      ctx.fillStyle = "#111827";
+      ctx.fillRect(0, 0, W, H);
+    }
+    ctx.fillStyle = "rgba(0,0,0,0.32)";
+    ctx.fillRect(0, GROUND, W, H - GROUND);
+    ctx.fillStyle = "#a78bfa";
+    ctx.fillRect(0, GROUND, W, 4);
+  }
+
   function drawArenaTaller(ctx) {
     if (!coverPhoto(ctx, IMAGES.taller)) {
       ctx.fillStyle = "#1a1410";
@@ -1576,6 +1662,7 @@
     else if (id === "desierto") drawArenaDesierto(ctx);
     else if (id === "cancha") drawArenaCancha(ctx);
     else if (id === "concierto") drawArenaConcierto(ctx);
+    else if (id === "metro") drawArenaMetro(ctx);
     else if (id === "hangar") drawArenaHangar(ctx);
     else if (id === "puerto") drawArenaPuerto(ctx);
     else drawArenaAzotea(ctx);
