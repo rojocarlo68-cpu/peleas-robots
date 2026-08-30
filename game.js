@@ -1968,18 +1968,19 @@
     muted = !muted;
     try { localStorage.setItem(MUTE_KEY, muted ? "1" : "0"); } catch (e) {}
     $("btn-mute").textContent = muted ? "🔇 Silencio" : "🔊 Sonido";
-
+  });
+  $("btn-mute").textContent = muted ? "🔇 Silencio" : "🔊 Sonido";
 
   (function setupTouchPad() {
-    var fight = $("screen-fight");
-    if (!fight || $("touch-pad")) return;
+    var wrap = document.querySelector(".arena-wrap");
+    if (!wrap || $("touch-pad")) return;
     var pad = document.createElement("div");
     pad.id = "touch-pad";
     pad.className = "touch-pad";
     var left = document.createElement("div");
-    left.className = "touch-col";
+    left.className = "touch-col left";
     var right = document.createElement("div");
-    right.className = "touch-col";
+    right.className = "touch-col right";
     function mk(key, label, extra) {
       var b = document.createElement("button");
       b.type = "button";
@@ -1996,36 +1997,41 @@
     right.appendChild(mk("l", "Bloqueo"));
     pad.appendChild(left);
     pad.appendChild(right);
-    var bar = fight.querySelector(".controls-bar");
-    if (bar) fight.insertBefore(pad, bar);
-    else fight.appendChild(pad);
+    wrap.appendChild(pad);
 
     function down(ev) {
       ev.preventDefault();
-      var key = ev.currentTarget.getAttribute("data-key");
+      ev.stopPropagation();
+      var btn = ev.currentTarget;
+      if (btn.getAttribute("data-held") === "1") return;
+      btn.setAttribute("data-held", "1");
+      var key = btn.getAttribute("data-key");
       keys.add(key);
       keysPressed.add(key);
-      ev.currentTarget.classList.add("held");
+      btn.classList.add("held");
     }
     function up(ev) {
       ev.preventDefault();
-      var key = ev.currentTarget.getAttribute("data-key");
+      ev.stopPropagation();
+      var btn = ev.currentTarget;
+      btn.setAttribute("data-held", "0");
+      var key = btn.getAttribute("data-key");
       keys.delete(key);
-      ev.currentTarget.classList.remove("held");
+      btn.classList.remove("held");
     }
     pad.querySelectorAll("[data-key]").forEach(function (btn) {
       btn.addEventListener("pointerdown", down);
       btn.addEventListener("pointerup", up);
       btn.addEventListener("pointercancel", up);
-      btn.addEventListener("pointerleave", up);
+      btn.addEventListener("lostpointercapture", up);
+      btn.addEventListener("touchstart", down, { passive: false });
+      btn.addEventListener("touchend", up, { passive: false });
+      btn.addEventListener("touchcancel", up, { passive: false });
     });
     document.addEventListener("touchmove", function (e) {
       if (screen === "fight") e.preventDefault();
     }, { passive: false });
   })();
-
-  });
-  $("btn-mute").textContent = muted ? "🔇 Silencio" : "🔊 Sonido";
 
   Object.values(IMAGES).forEach((im) => {
     im.addEventListener("load", () => {
