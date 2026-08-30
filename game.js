@@ -1968,6 +1968,62 @@
     muted = !muted;
     try { localStorage.setItem(MUTE_KEY, muted ? "1" : "0"); } catch (e) {}
     $("btn-mute").textContent = muted ? "🔇 Silencio" : "🔊 Sonido";
+
+
+  (function setupTouchPad() {
+    var fight = $("screen-fight");
+    if (!fight || $("touch-pad")) return;
+    var pad = document.createElement("div");
+    pad.id = "touch-pad";
+    pad.className = "touch-pad";
+    var left = document.createElement("div");
+    left.className = "touch-col";
+    var right = document.createElement("div");
+    right.className = "touch-col";
+    function mk(key, label, extra) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "touch-btn" + (extra ? " " + extra : "");
+      b.setAttribute("data-key", key);
+      b.textContent = label;
+      return b;
+    }
+    left.appendChild(mk("a", "<"));
+    left.appendChild(mk("w", "Salto"));
+    left.appendChild(mk("d", ">"));
+    right.appendChild(mk("j", "Puno", "atk"));
+    right.appendChild(mk("k", "Patada", "atk"));
+    right.appendChild(mk("l", "Bloqueo"));
+    pad.appendChild(left);
+    pad.appendChild(right);
+    var bar = fight.querySelector(".controls-bar");
+    if (bar) fight.insertBefore(pad, bar);
+    else fight.appendChild(pad);
+
+    function down(ev) {
+      ev.preventDefault();
+      var key = ev.currentTarget.getAttribute("data-key");
+      keys.add(key);
+      keysPressed.add(key);
+      ev.currentTarget.classList.add("held");
+    }
+    function up(ev) {
+      ev.preventDefault();
+      var key = ev.currentTarget.getAttribute("data-key");
+      keys.delete(key);
+      ev.currentTarget.classList.remove("held");
+    }
+    pad.querySelectorAll("[data-key]").forEach(function (btn) {
+      btn.addEventListener("pointerdown", down);
+      btn.addEventListener("pointerup", up);
+      btn.addEventListener("pointercancel", up);
+      btn.addEventListener("pointerleave", up);
+    });
+    document.addEventListener("touchmove", function (e) {
+      if (screen === "fight") e.preventDefault();
+    }, { passive: false });
+  })();
+
   });
   $("btn-mute").textContent = muted ? "🔇 Silencio" : "🔊 Sonido";
 
