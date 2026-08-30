@@ -158,6 +158,7 @@
     { id: "azotea", name: "Azotea" },
     { id: "desierto", name: "Desierto" },
     { id: "cancha", name: "Cancha", photo: true },
+    { id: "concierto", name: "Concierto", photo: true },
     { id: "puerto", name: "Puerto" },
   ];
 
@@ -169,6 +170,7 @@
   const IMAGES = {
     taller: loadImg("assets/arena-taller.jpg"),
     cancha: loadImg("assets/arena-cancha.jpg"),
+    concierto: loadImg("assets/arena-concierto.jpg"),
     orugaThumb: loadImg("assets/thumb-oruga.jpg"),
     orugaFight: loadImg("assets/fight-oruga.jpg"),
     calderaThumb: loadImg("assets/thumb-caldera.jpg"),
@@ -610,7 +612,7 @@
       const u = atk.t;
       if (u >= atk.wind && u < atk.wind + atk.active) punchReach = 16;
     }
-    const targetH = (f.h || 160) * scale * 1.35;
+    const targetH = (f.h || 160) * scale * (f.art ? 1.7 : 1.35);
     const iw = img.naturalWidth || img.width;
     const ih = img.naturalHeight || img.height;
     const ratio = iw / ih;
@@ -629,9 +631,6 @@
       ctx.fillRect(-dw / 2, -dh + 6, dw, dh);
     }
     ctx.globalCompositeOperation = "source-over";
-    if (f.id === "oruga" || f.id === "caldera" || f.id === "hielo" || f.id === "grunt") {
-      drawArtMech(ctx, f, t, dw, dh, state, atk);
-    }
     ctx.restore();
   }
 
@@ -1547,6 +1546,17 @@
     floorStrip(ctx, "#475569", "#0f172a", "#38bdf8");
   }
 
+  function drawArenaConcierto(ctx) {
+    if (!coverPhoto(ctx, IMAGES.concierto)) {
+      ctx.fillStyle = "#0b1020";
+      ctx.fillRect(0, 0, W, H);
+    }
+    ctx.fillStyle = "rgba(0,0,0,0.28)";
+    ctx.fillRect(0, GROUND, W, H - GROUND);
+    ctx.fillStyle = "#f472b6";
+    ctx.fillRect(0, GROUND, W, 4);
+  }
+
   function drawArenaTaller(ctx) {
     if (!coverPhoto(ctx, IMAGES.taller)) {
       ctx.fillStyle = "#1a1410";
@@ -1565,6 +1575,7 @@
     else if (id === "fabrica") drawArenaFabrica(ctx);
     else if (id === "desierto") drawArenaDesierto(ctx);
     else if (id === "cancha") drawArenaCancha(ctx);
+    else if (id === "concierto") drawArenaConcierto(ctx);
     else if (id === "hangar") drawArenaHangar(ctx);
     else if (id === "puerto") drawArenaPuerto(ctx);
     else drawArenaAzotea(ctx);
@@ -2165,6 +2176,7 @@
   $("btn-jugar").addEventListener("click", () => {
     ac();
     sfx.click();
+    goFullscreen();
     refreshGold();
     show("screen-hub");
   });
@@ -2214,6 +2226,7 @@
     if (!playerDef || !selectedMapId) return;
     ac();
     sfx.click();
+    goFullscreen();
     startFight(false);
   });
   $("btn-shop-back").addEventListener("click", () => {
@@ -2354,6 +2367,46 @@
       if (screen === "maps") renderMaps();
     });
   });
+
+  function goFullscreen() {
+    var el = document.documentElement;
+    var req = el.requestFullscreen || el.webkitRequestFullscreen || el.webkitRequestFullScreen;
+    if (req) {
+      try { req.call(el); } catch (e) {}
+    }
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock("landscape").catch(function () {});
+    }
+  }
+
+  function fitApp() {
+    var vv = window.visualViewport;
+    var h = (vv && vv.height) ? vv.height : window.innerHeight;
+    var w = (vv && vv.width) ? vv.width : window.innerWidth;
+    document.documentElement.style.setProperty("--app-h", h + "px");
+    document.documentElement.style.setProperty("--app-w", w + "px");
+  }
+  fitApp();
+  window.addEventListener("resize", fitApp);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", fitApp);
+    window.visualViewport.addEventListener("scroll", fitApp);
+  }
+
+  var btnFull = $("btn-full");
+  if (btnFull) {
+    btnFull.addEventListener("click", function () {
+      goFullscreen();
+      sfx.click();
+    });
+  }
+  var btnFullFight = $("btn-full-fight");
+  if (btnFullFight) {
+    btnFullFight.addEventListener("click", function () {
+      goFullscreen();
+      sfx.click();
+    });
+  }
 
   // boot
   refreshGold();

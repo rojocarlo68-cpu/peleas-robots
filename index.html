@@ -4,8 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#05070f" />
   <title>Peleas de Robots</title>
-  <link rel="stylesheet" href="style.css?v=8" />
+  <link rel="stylesheet" href="style.css?v=9" />
 </head>
 <body>
   <div id="app">
@@ -21,6 +24,7 @@
         </h1>
         <p class="tagline">Elige tu máquina. Golpea fuerte. Gana la arena.</p>
         <button id="btn-jugar" class="btn btn-mega" type="button">Jugar</button>
+        <button id="btn-full" class="btn btn-ghost" type="button">Pantalla completa</button>
         <p class="hint-keys">Toca para jugar · Elige mapa · Gana oro · Compra robots</p>
       </div>
       <canvas id="title-bots" class="title-bots" width="1280" height="280"></canvas>
@@ -153,6 +157,7 @@
           <div class="hp-track"><div id="c-hp" class="hp-fill cpu"></div></div>
         </div>
       </div>
+      <p id="rotate-hint" class="rotate-hint">Gira el teléfono para ver más grande</p>
       <div class="arena-wrap">
         <canvas id="arena" width="1280" height="720"></canvas>
         <div id="combo" class="combo hidden">COMBO x2</div>
@@ -174,10 +179,11 @@
         <span><kbd>J</kbd> Puño</span>
         <span><kbd>K</kbd> Patada</span>
         <span><kbd>L</kbd> Bloqueo</span>
+        <button id="btn-full-fight" class="btn btn-tiny" type="button">Pantalla completa</button>
         <button id="btn-mute" class="btn btn-tiny" type="button" title="Silenciar">🔊 Sonido</button>
       </div>
     </section>
   </div>
-  <script src="game.js?v=8"></script>
+  <script src="game.js?v=9"></script>
 </body>
 </html>
