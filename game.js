@@ -13,7 +13,7 @@
   const PROGRESS_KEY = "peleas-robots-progress-v1";
   const GOLD_WIN = 80;
   const START_GOLD = 40;
-  const START_OWNED = ["titanio", "chispa", "martillo", "voltio", "hielo"];
+  const START_OWNED = ["titanio", "chispa", "martillo", "voltio", "hielo", "grunt"];
 
   const PRESETS = [
     {
@@ -103,6 +103,20 @@
       h: 178,
     },
     {
+      id: "grunt",
+      name: "M-07 Grunt",
+      color: "#eab308",
+      body: "pesado",
+      fuerza: 8,
+      velocidad: 5,
+      resistencia: 8,
+      role: "Unidad de asalto. Amarillo y verde. Pega duro.",
+      price: 200,
+      art: true,
+      w: 100,
+      h: 176,
+    },
+    {
       id: "sierra",
       name: "Sierra",
       color: "#fb923c",
@@ -161,6 +175,8 @@
     calderaFight: loadImg("assets/fight-caldera.jpg"),
     hieloThumb: loadImg("assets/thumb-hielo.jpg"),
     hieloFight: loadImg("assets/hielo.png"),
+    gruntThumb: loadImg("assets/thumb-grunt.jpg"),
+    gruntFight: loadImg("assets/fight-grunt.jpg"),
   };
   SHOP[0].thumbImg = IMAGES.orugaThumb;
   SHOP[0].spriteImg = IMAGES.orugaFight;
@@ -169,6 +185,9 @@
   var hieloDef = SHOP.filter(function (s) { return s.id === "hielo"; })[0];
   hieloDef.thumbImg = IMAGES.hieloThumb;
   hieloDef.spriteImg = IMAGES.hieloFight;
+  var gruntDef = SHOP.filter(function (s) { return s.id === "grunt"; })[0];
+  gruntDef.thumbImg = IMAGES.gruntThumb;
+  gruntDef.spriteImg = IMAGES.gruntFight;
 
   const BODY = {
     tanque: { w: 96, h: 168, fist: 24, leg: 20, label: "Tanque" },
@@ -484,6 +503,28 @@
       drawChain(ctx, dw * 0.1, -dh * 0.38, -0.2 - punchOut * 0.9, chLen, walkSwing);
       drawChain(ctx, -dw * 0.06, -dh * 0.3, 0.55 + kickOut * 0.7, 44 + kickOut * 52, -walkSwing);
     }
+    if (id === "grunt") {
+      var gPunch = punchOut;
+      var gKick = kickOut;
+      drawMechArm(ctx, dw * 0.12, -dh * 0.52, -0.4 + walkSwing + gPunch * 1.2, 10 + gPunch * 26, gPunch > 0.4);
+      drawMechArm(ctx, -dw * 0.1, -dh * 0.48, 0.55 - walkSwing + gKick * 0.8, 8 + gKick * 18, gKick > 0.4);
+      ctx.save();
+      ctx.fillStyle = "#3f6212";
+      ctx.fillRect(-18, -dh * 0.72, 22, 16);
+      ctx.fillStyle = "#eab308";
+      ctx.fillRect(-14, -dh * 0.78, 14, 8);
+      ctx.restore();
+      if (gPunch > 0.3) {
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        ctx.fillStyle = "rgba(250,204,21,0.55)";
+        ctx.beginPath();
+        ctx.arc(dw * 0.42 + gPunch * 20, -dh * 0.5, 16, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+      return;
+    }
     if (id === "hielo") {
       var icePunch = punchOut;
       var iceKick = kickOut;
@@ -588,7 +629,7 @@
       ctx.fillRect(-dw / 2, -dh + 6, dw, dh);
     }
     ctx.globalCompositeOperation = "source-over";
-    if (f.id === "oruga" || f.id === "caldera" || f.id === "hielo") {
+    if (f.id === "oruga" || f.id === "caldera" || f.id === "hielo" || f.id === "grunt") {
       drawArtMech(ctx, f, t, dw, dh, state, atk);
     }
     ctx.restore();
@@ -1023,7 +1064,7 @@
     if (f.body === "pesado") r += 18;
     if (f.body === "tanque" && kind === "punch") r += 10;
     if (f.body === "agil") r -= 4;
-    if (f.id === "oruga" || f.id === "caldera" || f.id === "hielo") r += 36;
+    if (f.id === "oruga" || f.id === "caldera" || f.id === "hielo" || f.id === "grunt") r += 36;
     return r;
   }
 
