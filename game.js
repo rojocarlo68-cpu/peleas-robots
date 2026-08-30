@@ -367,6 +367,126 @@
     return c;
   }
 
+
+  function drawWheel(ctx, x, y, r, ang) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(ang);
+    ctx.fillStyle = "#0b1220";
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#94a3b8";
+    ctx.lineWidth = Math.max(2, r * 0.14);
+    ctx.stroke();
+    ctx.fillStyle = "#334155";
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.34, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#e2e8f0";
+    ctx.lineWidth = 2;
+    for (var i = 0; i < 6; i++) {
+      ctx.rotate(Math.PI / 3);
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, -r * 0.82);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawChain(ctx, x0, y0, ang, len, swing) {
+    ctx.save();
+    ctx.translate(x0, y0);
+    ctx.rotate(ang + swing);
+    var links = 7;
+    var step = len / links;
+    ctx.lineWidth = 3;
+    for (var i = 0; i < links; i++) {
+      var yy = 8 + i * step;
+      ctx.fillStyle = i % 2 ? "#94a3b8" : "#64748b";
+      ctx.strokeStyle = "#cbd5e1";
+      ctx.beginPath();
+      ctx.ellipse(Math.sin(i * 0.7) * 2, yy, 5, 7, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.strokeStyle = "#f59e0b";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(0, len + 6, 8, 0.15, Math.PI * 1.65);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawMechArm(ctx, x, y, ang, reach, hot) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(ang);
+    ctx.fillStyle = "#475569";
+    ctx.fillRect(0, -8, 30, 16);
+    ctx.strokeStyle = "#94a3b8";
+    ctx.strokeRect(0, -8, 30, 16);
+    ctx.translate(30, 0);
+    ctx.rotate(0.35);
+    ctx.fillStyle = "#64748b";
+    ctx.fillRect(0, -7, 24 + reach, 14);
+    ctx.translate(24 + reach, 0);
+    ctx.fillStyle = hot ? "#fb7185" : "#1e293b";
+    ctx.beginPath();
+    ctx.arc(8, 0, 12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function artAttackT(state, atk, kind) {
+    if (state !== kind || !atk) return 0;
+    var u = atk.t;
+    if (u < atk.wind) return (u / atk.wind) * 0.35;
+    if (u < atk.wind + atk.active) return 0.35 + 0.65 * Math.min(1, (u - atk.wind) / Math.max(0.01, atk.active));
+    return Math.max(0, 1 - (u - atk.wind - atk.active) / Math.max(0.01, atk.rec));
+  }
+
+  function drawArtMech(ctx, f, t, dw, dh, state, atk) {
+    var id = f.id;
+    var moving = state === "walk" || state === "jump";
+    var spin = t * (moving ? 11 : 1.1);
+    var punchOut = artAttackT(state, atk, "punch");
+    var kickOut = artAttackT(state, atk, "kick");
+    var walkSwing = Math.sin(t * 7 + (f.phase || 0)) * (moving ? 0.38 : 0.1);
+    var wr = id === "oruga" ? 24 : 18;
+    drawWheel(ctx, -dw * 0.2, -wr + 6, wr, spin);
+    drawWheel(ctx, dw * 0.2, -wr + 6, wr, spin * 1.04);
+    if (id === "oruga") {
+      drawWheel(ctx, 0, -wr + 4, wr * 0.88, spin * 0.96);
+      var chLen = 58 + punchOut * 78 + kickOut * 36;
+      drawChain(ctx, dw * 0.1, -dh * 0.38, -0.2 - punchOut * 0.9, chLen, walkSwing);
+      drawChain(ctx, -dw * 0.06, -dh * 0.3, 0.55 + kickOut * 0.7, 44 + kickOut * 52, -walkSwing);
+    }
+    if (id === "caldera") {
+      var armAng = -0.45 + walkSwing;
+      var arm2 = 0.55 - walkSwing;
+      if (punchOut) armAng = -0.15 + punchOut * 1.25;
+      if (kickOut) arm2 = 0.25 + kickOut * 0.95;
+      drawMechArm(ctx, -dw * 0.1, -dh * 0.5, arm2, kickOut * 18, kickOut > 0.45);
+      drawMechArm(ctx, dw * 0.12, -dh * 0.54, armAng, punchOut * 28, punchOut > 0.45);
+      drawChain(ctx, dw * 0.02, -dh * 0.42, 0.7, 34 + punchOut * 28, walkSwing);
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      var flick = 0.65 + Math.sin(t * 17) * 0.28;
+      var gx = -dw * 0.24, gy = -dh * 0.76;
+      var grd = ctx.createRadialGradient(gx, gy, 2, gx, gy, 30 * flick);
+      grd.addColorStop(0, "rgba(165,243,252,0.95)");
+      grd.addColorStop(0.45, "rgba(56,189,248,0.55)");
+      grd.addColorStop(1, "rgba(37,99,235,0)");
+      ctx.fillStyle = grd;
+      ctx.beginPath();
+      ctx.arc(gx, gy - 8, 28 * flick, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
   function drawSpriteRobot(ctx, f, t) {
     const img = cutOutBg(f.spriteImg);
     const scale = f.drawScale || 1;
@@ -405,6 +525,10 @@
       ctx.globalCompositeOperation = "source-atop";
       ctx.fillStyle = "rgba(255,255,255,0.45)";
       ctx.fillRect(-dw / 2, -dh + 6, dw, dh);
+    }
+    ctx.globalCompositeOperation = "source-over";
+    if (f.id === "oruga" || f.id === "caldera") {
+      drawArtMech(ctx, f, t, dw, dh, state, atk);
     }
     ctx.restore();
   }
@@ -837,6 +961,7 @@
     if (f.body === "pesado") r += 18;
     if (f.body === "tanque" && kind === "punch") r += 10;
     if (f.body === "agil") r -= 4;
+    if (f.id === "oruga" || f.id === "caldera") r += 36;
     return r;
   }
 
