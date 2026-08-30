@@ -300,8 +300,75 @@
     };
   }
 
+
+  function cutOutBg(img) {
+    if (!img || !img.complete || !img.naturalWidth) return img;
+    if (img._cut) return img._cut;
+    var srcW = img.naturalWidth, srcH = img.naturalHeight;
+    var maxW = 720;
+    var sc = srcW > maxW ? maxW / srcW : 1;
+    var w = Math.max(2, Math.round(srcW * sc));
+    var h = Math.max(2, Math.round(srcH * sc));
+    var c = document.createElement("canvas");
+    c.width = w;
+    c.height = h;
+    var cx = c.getContext("2d");
+    cx.drawImage(img, 0, 0, w, h);
+    var data = cx.getImageData(0, 0, w, h);
+    var d = data.data;
+    function idx(x, y) { return (y * w + x) * 4; }
+    function sample(x, y) {
+      var i = idx(x, y);
+      return [d[i], d[i + 1], d[i + 2]];
+    }
+    var s1 = sample(1, 1), s2 = sample(w - 2, 1), s3 = sample(1, h - 2), s4 = sample(w - 2, h - 2);
+    var br = (s1[0] + s2[0] + s3[0] + s4[0]) / 4;
+    var bgc = (s1[1] + s2[1] + s3[1] + s4[1]) / 4;
+    var bb = (s1[2] + s2[2] + s3[2] + s4[2]) / 4;
+    var tol2 = 40 * 40;
+    function isBg(x, y) {
+      var i = idx(x, y);
+      var dr = d[i] - br, dg = d[i + 1] - bgc, dbv = d[i + 2] - bb;
+      return (dr * dr + dg * dg + dbv * dbv) < tol2;
+    }
+    var seen = new Uint8Array(w * h);
+    var stack = [];
+    function push(x, y) {
+      if (x < 0 || y < 0 || x >= w || y >= h) return;
+      var pxl = y * w + x;
+      if (seen[pxl]) return;
+      if (!isBg(x, y)) return;
+      seen[pxl] = 1;
+      stack.push(pxl);
+    }
+    for (var x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
+    for (var y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
+    while (stack.length) {
+      var pxl = stack.pop();
+      var xx = pxl % w, yy = (pxl / w) | 0;
+      d[pxl * 4 + 3] = 0;
+      push(xx - 1, yy); push(xx + 1, yy); push(xx, yy - 1); push(xx, yy + 1);
+    }
+    var copy = new Uint8ClampedArray(d);
+    for (yy = 1; yy < h - 1; yy++) {
+      for (xx = 1; xx < w - 1; xx++) {
+        var i = idx(xx, yy);
+        if (copy[i + 3] === 0) continue;
+        var n = 0;
+        if (copy[idx(xx - 1, yy) + 3] === 0) n++;
+        if (copy[idx(xx + 1, yy) + 3] === 0) n++;
+        if (copy[idx(xx, yy - 1) + 3] === 0) n++;
+        if (copy[idx(xx, yy + 1) + 3] === 0) n++;
+        if (n) d[i + 3] = Math.round(d[i + 3] * (1 - n * 0.3));
+      }
+    }
+    cx.putImageData(data, 0, 0);
+    img._cut = c;
+    return c;
+  }
+
   function drawSpriteRobot(ctx, f, t) {
-    const img = f.spriteImg;
+    const img = cutOutBg(f.spriteImg);
     const scale = f.drawScale || 1;
     const state = f.state || "idle";
     const atk = f.attack;
@@ -322,7 +389,9 @@
       if (u >= atk.wind && u < atk.wind + atk.active) punchReach = 16;
     }
     const targetH = (f.h || 160) * scale * 1.35;
-    const ratio = img.naturalWidth / img.naturalHeight;
+    const iw = img.naturalWidth || img.width;
+    const ih = img.naturalHeight || img.height;
+    const ratio = iw / ih;
     const dw = targetH * ratio;
     const dh = targetH;
     const x = f.x + punchReach * (f.facing || 1);
@@ -1338,9 +1407,10 @@
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, w, h);
     if (def.thumbImg && def.thumbImg.complete && def.thumbImg.naturalWidth) {
-      const iw = def.thumbImg.naturalWidth, ih = def.thumbImg.naturalHeight;
+      const cut = cutOutBg(def.thumbImg);
+      const iw = cut.naturalWidth || cut.width, ih = cut.naturalHeight || cut.height;
       const scale = Math.max(w / iw, h / ih);
-      ctx.drawImage(def.thumbImg, (w - iw * scale) / 2, (h - ih * scale) / 2, iw * scale, ih * scale);
+      ctx.drawImage(cut, (w - iw * scale) / 2, (h - ih * scale) / 2, iw * scale, ih * scale);
       return;
     }
     const fake = {
