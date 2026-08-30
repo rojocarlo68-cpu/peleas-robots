@@ -13,7 +13,7 @@
   const PROGRESS_KEY = "peleas-robots-progress-v1";
   const GOLD_WIN = 80;
   const START_GOLD = 40;
-  const START_OWNED = ["titanio", "chispa", "martillo", "voltio"];
+  const START_OWNED = ["titanio", "chispa", "martillo", "voltio", "hielo"];
 
   const PRESETS = [
     {
@@ -88,6 +88,21 @@
       h: 168,
     },
     {
+      id: "hielo",
+      name: "Hielo",
+      color: "#7dd3fc",
+      body: "agil",
+      fuerza: 7,
+      velocidad: 8,
+      resistencia: 6,
+      role: "Armadura de cristal. Garras de hielo y cadena de oro.",
+      price: 200,
+      art: true,
+      skipCut: true,
+      w: 92,
+      h: 178,
+    },
+    {
       id: "sierra",
       name: "Sierra",
       color: "#fb923c",
@@ -128,7 +143,7 @@
     { id: "fabrica", name: "Fábrica" },
     { id: "azotea", name: "Azotea" },
     { id: "desierto", name: "Desierto" },
-    { id: "hangar", name: "Hangar" },
+    { id: "cancha", name: "Cancha", photo: true },
     { id: "puerto", name: "Puerto" },
   ];
 
@@ -139,15 +154,21 @@
   }
   const IMAGES = {
     taller: loadImg("assets/arena-taller.jpg"),
+    cancha: loadImg("assets/arena-cancha.jpg"),
     orugaThumb: loadImg("assets/thumb-oruga.jpg"),
     orugaFight: loadImg("assets/fight-oruga.jpg"),
     calderaThumb: loadImg("assets/thumb-caldera.jpg"),
     calderaFight: loadImg("assets/fight-caldera.jpg"),
+    hieloThumb: loadImg("assets/thumb-hielo.jpg"),
+    hieloFight: loadImg("assets/hielo.png"),
   };
   SHOP[0].thumbImg = IMAGES.orugaThumb;
   SHOP[0].spriteImg = IMAGES.orugaFight;
   SHOP[1].thumbImg = IMAGES.calderaThumb;
   SHOP[1].spriteImg = IMAGES.calderaFight;
+  var hieloDef = SHOP.filter(function (s) { return s.id === "hielo"; })[0];
+  hieloDef.thumbImg = IMAGES.hieloThumb;
+  hieloDef.spriteImg = IMAGES.hieloFight;
 
   const BODY = {
     tanque: { w: 96, h: 168, fist: 24, leg: 20, label: "Tanque" },
@@ -463,6 +484,46 @@
       drawChain(ctx, dw * 0.1, -dh * 0.38, -0.2 - punchOut * 0.9, chLen, walkSwing);
       drawChain(ctx, -dw * 0.06, -dh * 0.3, 0.55 + kickOut * 0.7, 44 + kickOut * 52, -walkSwing);
     }
+    if (id === "hielo") {
+      var icePunch = punchOut;
+      var iceKick = kickOut;
+      ctx.save();
+      ctx.translate(dw * 0.28, -dh * 0.48);
+      ctx.rotate(-0.25 - icePunch * 1.15);
+      ctx.fillStyle = "rgba(186,230,253,0.95)";
+      ctx.strokeStyle = "rgba(125,211,252,0.9)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(36 + icePunch * 54, -10);
+      ctx.lineTo(42 + icePunch * 62, 0);
+      ctx.lineTo(36 + icePunch * 54, 10);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+      ctx.save();
+      ctx.translate(-dw * 0.12, -dh * 0.22);
+      ctx.rotate(0.9 + iceKick * 0.7 + walkSwing);
+      ctx.fillStyle = "rgba(224,242,254,0.85)";
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(18 + iceKick * 28, 40 + iceKick * 24);
+      ctx.lineTo(-6, 36 + iceKick * 20);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+      drawChain(ctx, -dw * 0.02, -dh * 0.58, 0.5 + walkSwing, 28 + icePunch * 12, walkSwing);
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      var spark = 0.5 + Math.sin(t * 14) * 0.25;
+      ctx.fillStyle = "rgba(186,230,253," + (0.35 * spark) + ")";
+      ctx.beginPath();
+      ctx.arc(dw * 0.08, -dh * 0.78, 16 * spark, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      return;
+    }
     if (id === "caldera") {
       var armAng = -0.45 + walkSwing;
       var arm2 = 0.55 - walkSwing;
@@ -488,7 +549,7 @@
   }
 
   function drawSpriteRobot(ctx, f, t) {
-    const img = cutOutBg(f.spriteImg);
+    const img = f.skipCut ? f.spriteImg : cutOutBg(f.spriteImg);
     const scale = f.drawScale || 1;
     const state = f.state || "idle";
     const atk = f.attack;
@@ -527,7 +588,7 @@
       ctx.fillRect(-dw / 2, -dh + 6, dw, dh);
     }
     ctx.globalCompositeOperation = "source-over";
-    if (f.id === "oruga" || f.id === "caldera") {
+    if (f.id === "oruga" || f.id === "caldera" || f.id === "hielo") {
       drawArtMech(ctx, f, t, dw, dh, state, atk);
     }
     ctx.restore();
@@ -914,6 +975,7 @@
       custom: !!def.custom,
       spriteImg: def.spriteImg || null,
       art: !!def.art,
+      skipCut: !!def.skipCut,
       isPlayer,
       x: isPlayer ? 300 : 980,
       y: GROUND,
@@ -961,7 +1023,7 @@
     if (f.body === "pesado") r += 18;
     if (f.body === "tanque" && kind === "punch") r += 10;
     if (f.body === "agil") r -= 4;
-    if (f.id === "oruga" || f.id === "caldera") r += 36;
+    if (f.id === "oruga" || f.id === "caldera" || f.id === "hielo") r += 36;
     return r;
   }
 
@@ -1398,6 +1460,17 @@
     floorStrip(ctx, "#f59e0b", "#7c2d12", "#fde68a");
   }
 
+  function drawArenaCancha(ctx) {
+    if (!coverPhoto(ctx, IMAGES.cancha)) {
+      ctx.fillStyle = "#1e293b";
+      ctx.fillRect(0, 0, W, H);
+    }
+    ctx.fillStyle = "rgba(0,0,0,0.22)";
+    ctx.fillRect(0, GROUND, W, H - GROUND);
+    ctx.fillStyle = "#f8fafc";
+    ctx.fillRect(0, GROUND, W, 4);
+  }
+
   function drawArenaHangar(ctx) {
     ctx.fillStyle = "#0f172a";
     ctx.fillRect(0, 0, W, H);
@@ -1450,6 +1523,7 @@
     else if (id === "desguace") drawArenaDesguace(ctx);
     else if (id === "fabrica") drawArenaFabrica(ctx);
     else if (id === "desierto") drawArenaDesierto(ctx);
+    else if (id === "cancha") drawArenaCancha(ctx);
     else if (id === "hangar") drawArenaHangar(ctx);
     else if (id === "puerto") drawArenaPuerto(ctx);
     else drawArenaAzotea(ctx);
@@ -1550,6 +1624,8 @@
       drawScale: 0.72,
       phase: def.name.length,
       spriteImg: def.spriteImg || null,
+      id: def.id,
+      skipCut: !!def.skipCut,
       h: def.h,
       w: def.w,
     };
@@ -1698,11 +1774,13 @@
     const ctx = canvas.getContext("2d");
     const w = canvas.width, h = canvas.height;
     ctx.clearRect(0, 0, w, h);
-    if (arena.photo && IMAGES.taller.complete && IMAGES.taller.naturalWidth) {
-      const img = IMAGES.taller;
-      const scale = Math.max(w / img.naturalWidth, h / img.naturalHeight);
-      ctx.drawImage(img, (w - img.naturalWidth * scale) / 2, (h - img.naturalHeight * scale) / 2, img.naturalWidth * scale, img.naturalHeight * scale);
-      return;
+    if (arena.photo) {
+      const img = IMAGES[arena.id];
+      if (img && img.complete && img.naturalWidth) {
+        const scale = Math.max(w / img.naturalWidth, h / img.naturalHeight);
+        ctx.drawImage(img, (w - img.naturalWidth * scale) / 2, (h - img.naturalHeight * scale) / 2, img.naturalWidth * scale, img.naturalHeight * scale);
+        return;
+      }
     }
     const palettes = {
       desguace: ["#8a4a22", "#4a2a18"],
