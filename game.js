@@ -10,9 +10,9 @@
   const GROUND = 618;
   const STORAGE_KEY = "peleas-robots-customs-v1";
   const MUTE_KEY = "peleas-robots-mute";
-  const PROGRESS_KEY = "peleas-robots-progress-v1";
+  const PROGRESS_KEY = "peleas-robots-progress-v2";
   const GOLD_WIN = 80;
-  const START_GOLD = 40;
+  const START_GOLD = 0;
   const START_OWNED = ["titanio", "chispa", "martillo", "voltio", "hielo", "grunt", "oxido"];
 
   const PRESETS = [
@@ -338,10 +338,11 @@
       const p = raw ? JSON.parse(raw) : null;
       if (p && typeof p.gold === "number" && Array.isArray(p.owned)) {
         START_OWNED.forEach((id) => { if (p.owned.indexOf(id) < 0) p.owned.push(id); });
+        if (typeof p.wins !== "number") p.wins = 0;
         return p;
       }
     } catch (e) { /* ignore */ }
-    return { gold: START_GOLD, owned: START_OWNED.slice() };
+    return { gold: START_GOLD, owned: START_OWNED.slice(), wins: 0 };
   }
   function saveProgress() {
     try { localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress)); }
@@ -652,7 +653,6 @@
       ctx.fillRect(-dw / 2, -dh + 6, dw, dh);
     }
     ctx.globalCompositeOperation = "source-over";
-    if (f.id === "oxido") drawWreckingBall(ctx, f, t, dw, dh, state, atk);
     ctx.restore();
   }
 
@@ -1372,14 +1372,20 @@
   }
 
   /* ---------- AI ---------- */
+  function aiLevel() {
+    return Math.min(1, (progress.wins || 0) / 10);
+  }
+
   function makeAi(cpu) {
+    var lv = aiLevel();
     return {
       t: 0,
-      delay: 0.22 + Math.random() * 0.14,
+      delay: 0.26 - lv * 0.18,
       intent: "approach",
       blockLeft: 0,
       think: 0,
-      cool: 0.4,
+      cool: 0.48 - lv * 0.28,
+      lv: lv,
     };
   }
 
@@ -1400,16 +1406,17 @@
     if (ai.think <= 0) {
       ai.think = ai.delay;
       const r = Math.random();
-      if (playerSwinging && ad < 130 && r < 0.38) {
+      var lv = ai.lv || 0;
+      if (playerSwinging && ad < 150 && r < 0.32 + lv * 0.5) {
         ai.intent = "block";
-        ai.blockLeft = rand(0.25, 0.55);
+        ai.blockLeft = rand(0.28, 0.45 + lv * 0.25);
       } else if (cpu.body === "agil" && ad < 90 && cpu.hp < cpu.maxHp * 0.45 && r < 0.5) {
         ai.intent = "retreat";
       } else if (ad > 150) {
-        ai.intent = r < 0.12 ? "jump" : "approach";
-      } else if (ad < 115) {
-        if (r < 0.08) ai.intent = "block";
-        else if (r < 0.16) ai.intent = "retreat";
+        ai.intent = r < 0.1 + lv * 0.12 ? "jump" : "approach";
+      } else if (ad < 130 + lv * 20) {
+        if (r < 0.05) ai.intent = "block";
+        else if (r < 0.1 - lv * 0.05) ai.intent = "retreat";
         else ai.intent = "attack";
       } else {
         ai.intent = "approach";
@@ -1450,13 +1457,13 @@
           input.punch = Math.random() < 0.55;
           input.kick = !input.punch;
         }
-        if (ad > 118 && Math.random() < 0.4) {
+        if (ad > 118 && Math.random() < 0.38 - (ai.lv || 0) * 0.3) {
           input.punch = false;
           input.kick = false;
           input.left = towardLeft;
           input.right = !towardLeft;
         } else if (input.punch || input.kick) {
-          ai.cool = cpu.body === "agil" ? 0.28 : 0.42 + Math.random() * 0.18;
+          ai.cool = (cpu.body === "agil" ? 0.28 : 0.42 + Math.random() * 0.18) * (1 - (ai.lv || 0) * 0.45);
         }
       } else if (ad > 90) {
         input.left = towardLeft;
@@ -1464,7 +1471,8 @@
       }
     }
 
-    if (player.y < GROUND - 80 && ad < 140 && Math.random() < 0.015) input.jump = true;
+    if (player.y < GROUND - 80 && ad < 140 && Math.random() < 0.015 + (ai.lv || 0) * 0.04) input.jump = true;
+    if ((ai.lv || 0) > 0.4 && playerActive && ad < 160) input.block = true;
     return input;
   }
 
@@ -2041,6 +2049,11 @@
     }
     player = makeFighter(playerDef, true);
     cpu = makeFighter(cpuDef, false);
+    var boost = Math.min(8, progress.wins || 0);
+    cpu.fuerza = Math.min(12, cpu.fuerza + Math.floor(boost * 0.35));
+    cpu.resistencia = Math.min(12, cpu.resistencia + Math.floor(boost * 0.25));
+    cpu.maxHp = Math.round(cpu.maxHp * (1 + boost * 0.06));
+    cpu.hp = cpu.maxHp;
     ai = makeAi(cpu);
     particles.length = 0;
     shake = 0;
@@ -2091,10 +2104,11 @@
     if (pAlive && !cAlive) {
       winner = "player";
       progress.gold += GOLD_WIN;
+      progress.wins = (progress.wins || 0) + 1;
       saveProgress();
       refreshGold();
       $("result-title").textContent = "¡Ganaste, Isaías!";
-      $("result-sub").textContent = cpu.name + " queda fuera de combate.";
+      $("result-sub").textContent = cpu.name + " queda fuera de combate. CPU nivel " + (progress.wins + 1) + ".";
       goldEl.textContent = "+" + GOLD_WIN + " oro";
       sfx.win();
     } else if (!pAlive && !cAlive) {
