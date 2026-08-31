@@ -205,6 +205,9 @@
     oxidoAtkHigh: loadImg("assets/oxido-atk-high.png"),
     oxidoAtkMid: loadImg("assets/oxido-atk-mid.png"),
     oxidoAtkLow: loadImg("assets/oxido-atk-low.png"),
+    oxidoSkelHigh: loadImg("assets/oxido-skel-high.png"),
+    oxidoSkelMid: loadImg("assets/oxido-skel-mid.png"),
+    oxidoSkelLow: loadImg("assets/oxido-skel-low.png"),
     metro: loadImg("assets/arena-metro.jpg"),
   };
   SHOP[0].thumbImg = IMAGES.orugaThumb;
@@ -855,6 +858,13 @@
     if (f.state === "punch") return f.poseMid || IMAGES.oxidoAtkMid;
     return null;
   }
+  function oxidoSkelPose(f) {
+    var atk = f.attack;
+    if (f.state === "kick" || (atk && atk.height === "low")) return IMAGES.oxidoSkelLow;
+    if (atk && atk.height === "high") return IMAGES.oxidoSkelHigh;
+    if (f.state === "punch" || f.state === "kick") return IMAGES.oxidoSkelMid;
+    return f.skelImg || IMAGES.oxidoSkel;
+  }
 
   function cutOxidoImg(img) {
     if (!img) return img;
@@ -864,9 +874,9 @@
   }
 
   function drawDamagedOxido(ctx, f, raw, ox, oy, dw, dh) {
-    var skel = f.skelImg || IMAGES.oxidoSkel;
+    var skel = oxidoSkelPose(f);
     if (skel && skel.complete && skel.naturalWidth) {
-      var sk = cutOutNearBlack(skel);
+      var sk = (skel.src && skel.src.indexOf(".png") >= 0) ? skel : cutOutNearBlack(skel);
       ctx.drawImage(sk, ox, oy, dw, dh);
     } else {
       ctx.save();
@@ -1705,7 +1715,9 @@
     return Math.round(82 + def.resistencia * 15);
   }
   function speedOf(def) {
-    return 150 + def.velocidad * 26;
+    var s = 150 + def.velocidad * 26;
+    if (def.isPlayer === false) s *= 0.7;
+    return s;
   }
   function makeFighter(def, isPlayer) {
     const b = BODY[def.body] || BODY.tanque;
