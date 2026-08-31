@@ -1844,7 +1844,7 @@
   }
   function speedOf(def) {
     var s = 150 + def.velocidad * 26;
-    if (def.isPlayer === false) s *= 0.7;
+    if (def.isPlayer === false) s *= 0.3;
     return s;
   }
   function makeFighter(def, isPlayer) {
