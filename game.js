@@ -203,6 +203,9 @@
     oxidoFeet: loadImg("assets/oxido-feet.jpg"),
     oxidoBall: loadImg("assets/oxido-ball.png"),
     oxidoAtkHigh: loadImg("assets/oxido-atk-high.png"),
+    oxidoAtkHighD1: loadImg("assets/oxido-atk-high-d1.png"),
+    oxidoAtkHighD2: loadImg("assets/oxido-atk-high-d2.png"),
+    oxidoAtkHighD3: loadImg("assets/oxido-atk-high-d3.png"),
     oxidoAtkMid: loadImg("assets/oxido-atk-mid.png"),
     oxidoAtkLow: loadImg("assets/oxido-atk-low.png"),
     oxidoSkelHigh: loadImg("assets/oxido-skel-high.png"),
@@ -850,11 +853,37 @@
     return true;
   }
 
+  function oxidoStage(f) {
+    var hp = f.maxHp > 0 ? f.hp / f.maxHp : 0;
+    var gone = 0;
+    var p = f.panels || {};
+    if ((p.head || 0) >= 3) gone++;
+    if ((p.torso || 0) >= 3) gone++;
+    if ((p.armF || 0) >= 3) gone++;
+    if ((p.armB || 0) >= 3) gone++;
+    if ((p.legs || 0) >= 3) gone++;
+    var fromHp = hp > 0.72 ? 0 : hp > 0.48 ? 1 : hp > 0.26 ? 2 : 3;
+    var fromGone = gone >= 3 ? 3 : gone;
+    return fromHp > fromGone ? fromHp : fromGone;
+  }
+  function oxidoHighPainted(f) {
+    return !!(f && f.state === "punch" && f.attack && f.attack.height === "high");
+  }
+  function readyImg(im) {
+    return im && im.complete && im.naturalWidth;
+  }
   function oxidoPoseImg(f) {
     var atk = f.attack;
     if (!atk) return null;
     if (f.state === "kick" || (atk.height === "low")) return f.poseLow || IMAGES.oxidoAtkLow;
-    if (atk.height === "high") return f.poseHigh || IMAGES.oxidoAtkHigh;
+    if (atk.height === "high") {
+      var st = oxidoStage(f);
+      var img = f.poseHigh || IMAGES.oxidoAtkHigh;
+      if (st >= 3 && readyImg(IMAGES.oxidoAtkHighD3)) img = IMAGES.oxidoAtkHighD3;
+      else if (st >= 2 && readyImg(IMAGES.oxidoAtkHighD2)) img = IMAGES.oxidoAtkHighD2;
+      else if (st >= 1 && readyImg(IMAGES.oxidoAtkHighD1)) img = IMAGES.oxidoAtkHighD1;
+      return img;
+    }
     if (f.state === "punch") return f.poseMid || IMAGES.oxidoAtkMid;
     return null;
   }
@@ -874,15 +903,18 @@
   }
 
   function drawDamagedOxido(ctx, f, raw, ox, oy, dw, dh) {
-    var skel = oxidoSkelPose(f);
-    if (skel && skel.complete && skel.naturalWidth) {
-      var sk = (skel.src && skel.src.indexOf(".png") >= 0) ? skel : cutOutNearBlack(skel);
-      ctx.drawImage(sk, ox, oy, dw, dh);
-    } else {
-      ctx.save();
-      ctx.translate(ox, oy);
-      drawGutsForGone(ctx, f, dw, dh);
-      ctx.restore();
+    var paintedHigh = oxidoHighPainted(f);
+    if (!paintedHigh) {
+      var skel = oxidoSkelPose(f);
+      if (skel && skel.complete && skel.naturalWidth) {
+        var sk = (skel.src && skel.src.indexOf(".png") >= 0) ? skel : cutOutNearBlack(skel);
+        ctx.drawImage(sk, ox, oy, dw, dh);
+      } else {
+        ctx.save();
+        ctx.translate(ox, oy);
+        drawGutsForGone(ctx, f, dw, dh);
+        ctx.restore();
+      }
     }
     var im = cutOxidoImg(raw);
     var layer = getArmorLayer(dw, dh);
@@ -890,16 +922,18 @@
     lctx.setTransform(1, 0, 0, 1, 0, 0);
     lctx.clearRect(0, 0, layer.width, layer.height);
     lctx.drawImage(im, 0, 0, dw, dh);
-    punchHoles(lctx, f, dw, dh);
-    if (f.headLost) {
-      lctx.save();
-      lctx.globalCompositeOperation = "destination-out";
-      lctx.beginPath();
-      lctx.ellipse(dw * 0.5, dh * 0.12, dw * 0.28, dh * 0.16, 0, 0, Math.PI * 2);
-      lctx.fill();
-      lctx.restore();
+    if (!paintedHigh) {
+      punchHoles(lctx, f, dw, dh);
+      if (f.headLost) {
+        lctx.save();
+        lctx.globalCompositeOperation = "destination-out";
+        lctx.beginPath();
+        lctx.ellipse(dw * 0.5, dh * 0.12, dw * 0.28, dh * 0.16, 0, 0, Math.PI * 2);
+        lctx.fill();
+        lctx.restore();
+      }
+      drawDents(lctx, f, dw, dh);
     }
-    drawDents(lctx, f, dw, dh);
     ctx.drawImage(layer, ox, oy, dw, dh);
     if (f.hitFlash > 0) {
       ctx.globalCompositeOperation = "source-atop";
@@ -1514,28 +1548,55 @@
     }
   }
   function burstDust(x, y, facing, heavy) {
-    var n = heavy ? 22 : 12;
-    var i, smoke, col;
+    var n = (heavy ? 12 : 7) + (Math.random() * (heavy ? 18 : 14) | 0);
+    var i, smoke, col, dir, side;
     facing = facing || 1;
     for (i = 0; i < n; i++) {
-      smoke = Math.random() < 0.48;
+      smoke = Math.random() < (0.32 + Math.random() * 0.4);
       if (smoke) {
         col = Math.random() < 0.5 ? "rgba(72,66,58,0.55)" : "rgba(120,112,100,0.42)";
       } else {
         col = Math.random() < 0.5 ? "#6b5344" : "#c4b49a";
       }
+      dir = Math.random() * Math.PI * 2;
+      side = Math.random() < 0.22 ? -facing : facing;
       particles.push({
         kind: smoke ? "smoke" : "dust",
-        x: x + rand(-22, 28) * facing,
-        y: y + rand(-16, 14),
-        vx: rand(-90, 260) * facing * (0.35 + Math.random()),
-        vy: smoke ? rand(-200, -30) : rand(-360, -10),
-        life: smoke ? rand(0.5, 1.35) : rand(0.25, 0.75),
-        max: 1.35,
-        size: smoke ? rand(12, 34) : rand(3, 13),
+        x: x + rand(-34, 40) * facing,
+        y: y + rand(-28, 22),
+        vx: Math.cos(dir) * rand(40, 280) * side * (0.25 + Math.random()),
+        vy: smoke ? rand(-260, 40) : rand(-420, 30),
+        life: smoke ? rand(0.35, 1.7) : rand(0.18, 0.95),
+        max: smoke ? 1.7 : 0.95,
+        size: smoke ? rand(8, 42) : rand(2, 16),
         color: col,
-        g: smoke ? 70 + Math.random() * 50 : 380 + Math.random() * 200,
-        spin: rand(-4, 4),
+        g: smoke ? 40 + Math.random() * 90 : 240 + Math.random() * 420,
+        spin: rand(-6, 6),
+        rot: rand(0, 6),
+      });
+    }
+  }
+  function burstHeavySmoke(x, y, facing) {
+    var n = 34 + (Math.random() * 22 | 0);
+    var i, col, dir;
+    facing = facing || 1;
+    for (i = 0; i < n; i++) {
+      col = Math.random() < 0.4
+        ? "rgba(40,36,32,0.7)"
+        : (Math.random() < 0.5 ? "rgba(86,80,70,0.55)" : "rgba(150,142,128,0.4)");
+      dir = Math.random() * Math.PI * 2;
+      particles.push({
+        kind: "smoke",
+        x: x + rand(-48, 56) * facing,
+        y: y + rand(-36, 28),
+        vx: Math.cos(dir) * rand(20, 160) * (Math.random() < 0.4 ? -facing : facing),
+        vy: rand(-320, -10),
+        life: rand(1.15, 2.7),
+        max: 2.7,
+        size: rand(20, 64),
+        color: col,
+        g: 18 + Math.random() * 50,
+        spin: rand(-2.4, 2.4),
         rot: rand(0, 6),
       });
     }
@@ -1571,7 +1632,7 @@
       }
       if (p.life <= 0) particles.splice(i, 1);
     }
-    if (particles.length > 90) particles.splice(0, particles.length - 90);
+    if (particles.length > 260) particles.splice(0, particles.length - 260);
   }
 
   function drawParticles(ctx) {
@@ -1627,29 +1688,32 @@
     var py = def.y - def.h * (panel === "head" ? 0.88 : panel === "legs" ? 0.22 : 0.52);
     var px = def.x + def.facing * (panel === "armF" ? 28 : panel === "armB" ? -22 : 0);
     var i, a, s;
-    burst(px, py, "#fbbf24", broke ? 16 : 8, broke ? 420 : 240);
-    burst(px, py, "#fff", broke ? 8 : 4, 260);
+    burst(px, py, "#fbbf24", broke ? (10 + (Math.random() * 12 | 0)) : (4 + (Math.random() * 6 | 0)), broke ? rand(280, 520) : rand(160, 280));
+    burst(px, py, "#fff", broke ? (4 + (Math.random() * 8 | 0)) : (2 + (Math.random() * 4 | 0)), rand(180, 320));
     if (!broke) return;
     particles.push({
-      kind: "shard", x: px, y: py, vx: rand(-120, 120), vy: rand(-380, -160),
-      life: 1.1, max: 1.1, size: rand(10, 18), color: "#57534e", g: 980, spin: rand(-8, 8), rot: 0, bounce: 1,
+      kind: "shard", x: px, y: py, vx: rand(-180, 180), vy: rand(-440, -90),
+      life: rand(0.7, 1.5), max: 1.5, size: rand(8, 22), color: "#57534e", g: 980, spin: rand(-10, 10), rot: rand(0, 4), bounce: 1,
     });
-    for (i = 0; i < 5; i++) {
+    var nOil = 3 + (Math.random() * 6 | 0);
+    for (i = 0; i < nOil; i++) {
       particles.push({
-        kind: "oil", x: px + rand(-10, 10), y: py, vx: rand(-70, 70), vy: rand(-220, -40),
-        life: rand(0.7, 1.2), max: 1.2, size: rand(4, 8), color: "#1a2e12", g: 700, bounce: 1,
+        kind: "oil", x: px + rand(-16, 16), y: py + rand(-8, 8), vx: rand(-120, 120), vy: rand(-280, -10),
+        life: rand(0.45, 1.5), max: 1.5, size: rand(3, 11), color: "#1a2e12", g: 500 + Math.random() * 400, bounce: 1,
       });
     }
-    for (i = 0; i < 6; i++) {
+    var nScrew = 3 + (Math.random() * 8 | 0);
+    for (i = 0; i < nScrew; i++) {
       particles.push({
-        kind: "screw", x: px, y: py, vx: rand(-160, 160), vy: rand(-340, -80),
-        life: rand(0.6, 1.0), max: 1.0, size: rand(4, 7), g: 980, spin: rand(-14, 14), rot: 0, bounce: 1,
+        kind: "screw", x: px + rand(-12, 12), y: py, vx: rand(-240, 240), vy: rand(-400, -40),
+        life: rand(0.4, 1.3), max: 1.3, size: rand(3, 9), g: 980, spin: rand(-18, 18), rot: rand(0, 5), bounce: 1,
       });
     }
-    for (i = 0; i < 2; i++) {
+    var nHose = 1 + (Math.random() * 3 | 0);
+    for (i = 0; i < nHose; i++) {
       particles.push({
-        kind: "hose", x: px, y: py, vx: rand(-90, 90), vy: rand(-260, -60),
-        life: 0.9, max: 0.9, size: rand(3, 5), color: i ? "#1e3a8a" : "#7c2d12", g: 820, spin: rand(-4, 4), rot: 0, bounce: 1,
+        kind: "hose", x: px, y: py, vx: rand(-140, 140), vy: rand(-300, -20),
+        life: rand(0.5, 1.2), max: 1.2, size: rand(2, 6), color: i % 2 ? "#1e3a8a" : "#7c2d12", g: 820, spin: rand(-6, 6), rot: rand(0, 4), bounce: 1,
       });
     }
   }
@@ -1866,6 +1930,7 @@
       var hy = def.y - def.h * (kind === "kick" || (atk.attack && atk.attack.height === "low") ? 0.12 : (atk.attack && atk.attack.height === "high" ? 0.88 : 0.5));
       burstDust(hx, hy, atk.facing, kind === "kick" || atk.id === "oxido");
       if (atk.id === "oxido") burstDust(hx + atk.facing * 24, hy, atk.facing, true);
+      if (Math.random() < 0.2) burstHeavySmoke(hx, hy, atk.facing);
 
       if (atk.body === "rayo" && kind === "punch" && Math.random() < 0.34) {
         def.state = "stun";
