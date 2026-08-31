@@ -196,7 +196,11 @@
     gruntFight: loadImg("assets/fight-grunt.jpg"),
     oxidoThumb: loadImg("assets/thumb-oxido.jpg"),
     oxidoFight: loadImg("assets/fight-oxido.jpg"),
-    oxidoSkel: loadImg("assets/oxido-esqueleto.jpg"),
+    oxidoSkel: loadImg("assets/oxido-esqueleto.png"),
+    oxidoHead: loadImg("assets/oxido-head.jpg"),
+    oxidoTorso: loadImg("assets/oxido-torso.jpg"),
+    oxidoThigh: loadImg("assets/oxido-thigh.jpg"),
+    oxidoFeet: loadImg("assets/oxido-feet.jpg"),
     metro: loadImg("assets/arena-metro.jpg"),
   };
   SHOP[0].thumbImg = IMAGES.orugaThumb;
@@ -213,6 +217,10 @@
   oxidoDef.thumbImg = IMAGES.oxidoThumb;
   oxidoDef.spriteImg = IMAGES.oxidoFight;
   oxidoDef.skelImg = IMAGES.oxidoSkel;
+  oxidoDef.partHead = IMAGES.oxidoHead;
+  oxidoDef.partTorso = IMAGES.oxidoTorso;
+  oxidoDef.partThigh = IMAGES.oxidoThigh;
+  oxidoDef.partFeet = IMAGES.oxidoFeet;
 
   const BODY = {
     tanque: { w: 96, h: 168, fist: 24, leg: 20, label: "Tanque" },
@@ -737,7 +745,102 @@
     }
   }
 
+  function blitPart(ctx, img, cx, bottomY, h) {
+    if (!img || !img.complete || !img.naturalWidth) return;
+    var im = cutOutBg(img);
+    var iw = im.width || im.naturalWidth;
+    var ih = im.height || im.naturalHeight;
+    if (!ih) return;
+    var dw = h * (iw / ih);
+    ctx.drawImage(im, cx - dw / 2, bottomY - h, dw, h);
+  }
+
+  function oxidoPartsReady(f) {
+    var a = [f.partHead, f.partTorso, f.partThigh, f.partFeet];
+    var i;
+    for (i = 0; i < a.length; i++) {
+      if (!a[i] || !a[i].complete || !a[i].naturalWidth) return false;
+    }
+    return true;
+  }
+
+  function drawOxidoPuppet(ctx, f, t) {
+    const scale = f.drawScale || 1;
+    const state = f.state || "idle";
+    const atk = f.attack;
+    const walking = state === "walk";
+    const stride = Math.sin(t * 7.5 + (f.phase || 0));
+    let bob = Math.sin(t * 5 + (f.phase || 0)) * (walking ? 4 : 1.2);
+    if (walking) bob += Math.abs(stride) * 5;
+    let lean = walking ? stride * 3 : 0;
+    let punchReach = 0;
+    if (state === "jump") bob = -12;
+    if (state === "block") lean = -6;
+    if (state === "hit" || state === "stun") lean = -8;
+    if (state === "ko") lean = 16;
+    if (state === "punch" && atk) {
+      if (atk.t >= atk.wind && atk.t < atk.wind + atk.active) punchReach = atk.height === "high" ? 18 : 26;
+      lean = atk.height === "high" ? -4 : 10;
+    }
+    if (state === "kick" && atk) {
+      if (atk.t >= atk.wind && atk.t < atk.wind + atk.active) punchReach = 10;
+    }
+    const dh = (f.h || 180) * scale * 1.55;
+    const dw = dh * 0.62;
+    ctx.save();
+    ctx.translate(f.x + punchReach * (f.facing || 1), f.y + bob);
+    ctx.scale(f.facing || 1, 1);
+    if (lean) ctx.rotate(lean * 0.012);
+
+    var destX = -dw / 2, destY = -dh + 6;
+    var skel = f.skelImg || IMAGES.oxidoSkel;
+    if (skel && skel.complete && skel.naturalWidth) {
+      ctx.drawImage(cutOutBg(skel), destX, destY, dw, dh);
+    }
+
+    var layer = getArmorLayer(dw, dh);
+    var lctx = layer.getContext("2d");
+    lctx.setTransform(1, 0, 0, 1, 0, 0);
+    lctx.clearRect(0, 0, layer.width, layer.height);
+    lctx.save();
+    lctx.translate(dw / 2, dh);
+
+    var hip = walking ? stride * 0.2 : 0;
+    var kickAng = 0;
+    if (state === "kick" && atk && atk.t >= atk.wind) kickAng = 0.55;
+    lctx.save();
+    lctx.rotate(hip + kickAng);
+    blitPart(lctx, f.partFeet, 8, 0, dh * 0.3);
+    blitPart(lctx, f.partThigh, 4, -dh * 0.22, dh * 0.34);
+    lctx.restore();
+
+    lctx.save();
+    lctx.translate(punchReach * 0.4, 0);
+    blitPart(lctx, f.partTorso, 0, -dh * 0.48, dh * 0.4);
+    lctx.restore();
+
+    var headBob = walking ? stride * 3 : 0;
+    if (state === "punch" && atk && atk.height === "high") headBob -= 10;
+    blitPart(lctx, f.partHead, 2, -dh * 0.78 + headBob, dh * 0.26);
+    lctx.restore();
+
+    punchHoles(lctx, f, dw, dh);
+    drawDents(lctx, f, dw, dh);
+    ctx.drawImage(layer, destX, destY, dw, dh);
+    if (f.hitFlash > 0) {
+      ctx.globalCompositeOperation = "source-atop";
+      ctx.fillStyle = "rgba(255,255,255,0.4)";
+      ctx.fillRect(destX, destY, dw, dh);
+      ctx.globalCompositeOperation = "source-over";
+    }
+    ctx.restore();
+  }
+
   function drawSpriteRobot(ctx, f, t) {
+    if (f.id === "oxido" && oxidoPartsReady(f)) {
+      drawOxidoPuppet(ctx, f, t);
+      return;
+    }
     const img = f.skipCut ? f.spriteImg : cutOutBg(f.spriteImg);
     const scale = f.drawScale || 1;
     const state = f.state || "idle";
@@ -1326,7 +1429,10 @@
 
   function smashPanel(def, kind) {
     if (!def.panels) def.panels = { head: 0, torso: 0, armF: 0, armB: 0, legs: 0 };
-    var prefer = kind === "kick" ? ["legs", "torso", "armF", "head", "armB"] : ["torso", "head", "armF", "armB", "legs"];
+    var prefer;
+    if (kind === "kick") prefer = ["legs", "torso", "armF", "head", "armB"];
+    else if (kind === "high") prefer = ["head", "torso", "armF", "armB", "legs"];
+    else prefer = ["torso", "armF", "head", "armB", "legs"];
     var k = prefer[0];
     var i, name;
     for (i = 0; i < prefer.length; i++) {
@@ -1360,6 +1466,10 @@
       custom: !!def.custom,
       spriteImg: def.spriteImg || null,
       skelImg: def.skelImg || null,
+      partHead: def.partHead || null,
+      partTorso: def.partTorso || null,
+      partThigh: def.partThigh || null,
+      partFeet: def.partFeet || null,
       art: !!def.art,
       skipCut: !!def.skipCut,
       isPlayer,
@@ -1396,9 +1506,9 @@
     if (f.state === "punch" || f.state === "kick" || f.state === "hit" || f.state === "stun" || f.state === "ko") return;
     const sp = 1.3 - f.velocidad * 0.04;
     if (kind === "punch") {
-      f.attack = { kind, t: 0, wind: 0.09 * sp, active: 0.1, rec: 0.16 * sp, hit: false };
+      f.attack = { kind, height: arguments[2] || "mid", t: 0, wind: 0.09 * sp, active: 0.1, rec: 0.16 * sp, hit: false };
     } else {
-      f.attack = { kind, t: 0, wind: 0.14 * sp, active: 0.12, rec: 0.24 * sp, hit: false };
+      f.attack = { kind, height: "low", t: 0, wind: 0.14 * sp, active: 0.12, rec: 0.24 * sp, hit: false };
     }
     f.state = kind;
     f.stateT = 0;
@@ -1470,7 +1580,7 @@
       hitStop = heavy ? 0.055 : 0.035;
       burst(def.x, def.y - def.h * 0.5, atk.color, 14, 380);
       burst(def.x, def.y - def.h * 0.5, "#fff", 6, 260);
-      smashPanel(def, kind);
+      smashPanel(def, (atk.attack && atk.attack.height === "high") ? "high" : kind);
 
       if (atk.body === "rayo" && kind === "punch" && Math.random() < 0.34) {
         def.state = "stun";
@@ -1615,7 +1725,8 @@
         sfx.jump();
         dust(f.x, GROUND);
       }
-      if (input.punch) startAttack(f, "punch");
+      if (input.punchHigh) startAttack(f, "punch", "high");
+      else if (input.punch) startAttack(f, "punch", "mid");
       else if (input.kick) startAttack(f, "kick");
       else if (!f.blocking) {
         if (!f.onGround) f.state = "jump";
@@ -2369,6 +2480,7 @@
       right,
       jump: keysPressed.has("w") || keysPressed.has("arrowup") || keysPressed.has(" "),
       punch: keysPressed.has("j"),
+      punchHigh: keysPressed.has("u"),
       kick: keysPressed.has("k"),
       block: keys.has("l"),
     };
@@ -2568,7 +2680,7 @@
   window.addEventListener("keydown", (e) => {
     const k = e.key.length === 1 ? e.key.toLowerCase() : e.key.toLowerCase();
     const mapSpace = e.key === " " ? " " : k;
-    const tracked = ["a", "d", "w", "s", "j", "k", "l", "arrowleft", "arrowright", "arrowup", "arrowdown", " "];
+    const tracked = ["a", "d", "w", "s", "j", "k", "l", "u", "arrowleft", "arrowright", "arrowup", "arrowdown", " "];
     if (tracked.indexOf(mapSpace) >= 0) {
       if (screen === "fight") e.preventDefault();
       if (!keys.has(mapSpace)) keysPressed.add(mapSpace);
@@ -2707,63 +2819,72 @@
   });
   $("btn-mute").textContent = muted ? "🔇 Silencio" : "🔊 Sonido";
 
-  (function setupTouchPad() {
+  (function setupFightTouch() {
     var wrap = document.querySelector(".arena-wrap");
-    if (!wrap || $("touch-pad")) return;
-    var pad = document.createElement("div");
-    pad.id = "touch-pad";
-    pad.className = "touch-pad";
-    var left = document.createElement("div");
-    left.className = "touch-col left";
-    var right = document.createElement("div");
-    right.className = "touch-col right";
-    function mk(key, label, extra) {
-      var b = document.createElement("button");
-      b.type = "button";
-      b.className = "touch-btn" + (extra ? " " + extra : "");
-      b.setAttribute("data-key", key);
-      b.textContent = label;
-      return b;
-    }
-    left.appendChild(mk("a", "<"));
-    left.appendChild(mk("w", "Salto"));
-    left.appendChild(mk("d", ">"));
-    right.appendChild(mk("j", "Puno", "atk"));
-    right.appendChild(mk("k", "Patada", "atk"));
-    right.appendChild(mk("l", "Bloqueo"));
-    pad.appendChild(left);
-    pad.appendChild(right);
-    wrap.appendChild(pad);
+    if (!wrap || $("touch-fight")) return;
+    var layer = document.createElement("div");
+    layer.id = "touch-fight";
+    layer.innerHTML = '<div id="stick-zone"></div><div id="atk-zone"><div data-atk="high"></div><div data-atk="mid"></div><div data-atk="kick"></div></div>';
+    wrap.appendChild(layer);
 
-    function down(ev) {
-      ev.preventDefault();
-      ev.stopPropagation();
-      var btn = ev.currentTarget;
-      if (btn.getAttribute("data-held") === "1") return;
-      btn.setAttribute("data-held", "1");
-      var key = btn.getAttribute("data-key");
-      keys.add(key);
-      keysPressed.add(key);
-      btn.classList.add("held");
+    var stickPid = null;
+    var originX = 0;
+    function clearStick() {
+      keys.delete("a");
+      keys.delete("d");
+      stickPid = null;
     }
-    function up(ev) {
-      ev.preventDefault();
-      ev.stopPropagation();
-      var btn = ev.currentTarget;
-      btn.setAttribute("data-held", "0");
-      var key = btn.getAttribute("data-key");
-      keys.delete(key);
-      btn.classList.remove("held");
+    function applyStick(x) {
+      keys.delete("a");
+      keys.delete("d");
+      if (x < originX - 18) keys.add("a");
+      else if (x > originX + 18) keys.add("d");
     }
-    pad.querySelectorAll("[data-key]").forEach(function (btn) {
-      btn.addEventListener("pointerdown", down);
-      btn.addEventListener("pointerup", up);
-      btn.addEventListener("pointercancel", up);
-      btn.addEventListener("lostpointercapture", up);
-      btn.addEventListener("touchstart", down, { passive: false });
-      btn.addEventListener("touchend", up, { passive: false });
-      btn.addEventListener("touchcancel", up, { passive: false });
+    var stick = $("stick-zone");
+    stick.addEventListener("pointerdown", function (ev) {
+      if (screen !== "fight") return;
+      ev.preventDefault();
+      stickPid = ev.pointerId;
+      originX = ev.clientX;
+      try { stick.setPointerCapture(ev.pointerId); } catch (e) {}
+      applyStick(ev.clientX);
     });
+    stick.addEventListener("pointermove", function (ev) {
+      if (ev.pointerId !== stickPid) return;
+      ev.preventDefault();
+      applyStick(ev.clientX);
+    });
+    stick.addEventListener("pointerup", function (ev) {
+      if (ev.pointerId !== stickPid) return;
+      ev.preventDefault();
+      clearStick();
+    });
+    stick.addEventListener("pointercancel", clearStick);
+    stick.addEventListener("lostpointercapture", function (ev) {
+      if (ev.pointerId === stickPid) clearStick();
+    });
+
+    var atkMap = { high: "u", mid: "j", kick: "k" };
+    $("atk-zone").querySelectorAll("[data-atk]").forEach(function (zone) {
+      var key = atkMap[zone.getAttribute("data-atk")];
+      zone.addEventListener("pointerdown", function (ev) {
+        if (screen !== "fight") return;
+        ev.preventDefault();
+        try { zone.setPointerCapture(ev.pointerId); } catch (e) {}
+        keys.add(key);
+        keysPressed.add(key);
+        zone.classList.add("held");
+      });
+      function up(ev) {
+        ev.preventDefault();
+        keys.delete(key);
+        zone.classList.remove("held");
+      }
+      zone.addEventListener("pointerup", up);
+      zone.addEventListener("pointercancel", up);
+      zone.addEventListener("lostpointercapture", up);
+    });
+
     document.addEventListener("touchmove", function (e) {
       if (screen === "fight") e.preventDefault();
     }, { passive: false });

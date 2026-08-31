@@ -538,12 +538,14 @@ html {
   text-transform: uppercase;
   text-shadow: 4px 6px 0 #000;
   pointer-events: none;
+  z-index: 60;
 }
 
 .overlay-result {
   background: rgba(5, 8, 18, 0.72);
   pointer-events: auto;
   gap: 12px;
+  z-index: 60;
 }
 
 .overlay-result h2 {
@@ -784,3 +786,25 @@ kbd {
   .rotate-hint { display: none !important; }
 }
 #screen-title .btn-ghost { margin-top: 10px; color: #c5d0ee; }
+
+#touch-fight {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  z-index: 35;
+  pointer-events: none;
+}
+#stick-zone, #atk-zone {
+  pointer-events: auto;
+  background: transparent;
+}
+#atk-zone {
+  display: grid;
+  grid-template-rows: 1fr 1fr 1fr;
+}
+#atk-zone > div { pointer-events: auto; }
+#atk-zone > div.held, #stick-zone.held {
+  background: rgba(255,255,255,0.06);
+}
+.touch-pad { display: none !important; }
