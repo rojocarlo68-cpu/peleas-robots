@@ -196,6 +196,7 @@
     gruntFight: loadImg("assets/fight-grunt.jpg"),
     oxidoThumb: loadImg("assets/thumb-oxido.jpg"),
     oxidoFight: loadImg("assets/fight-oxido.jpg"),
+    oxidoSkel: loadImg("assets/oxido-esqueleto.jpg"),
     metro: loadImg("assets/arena-metro.jpg"),
   };
   SHOP[0].thumbImg = IMAGES.orugaThumb;
@@ -211,6 +212,7 @@
   var oxidoDef = SHOP.filter(function (s) { return s.id === "oxido"; })[0];
   oxidoDef.thumbImg = IMAGES.oxidoThumb;
   oxidoDef.spriteImg = IMAGES.oxidoFight;
+  oxidoDef.skelImg = IMAGES.oxidoSkel;
 
   const BODY = {
     tanque: { w: 96, h: 168, fist: 24, leg: 20, label: "Tanque" },
@@ -613,15 +615,140 @@
     }
   }
 
+  var armorLayerCv = null;
+  function getArmorLayer(w, h) {
+    w = Math.max(4, Math.ceil(w));
+    h = Math.max(4, Math.ceil(h));
+    if (!armorLayerCv) armorLayerCv = document.createElement("canvas");
+    if (armorLayerCv.width !== w || armorLayerCv.height !== h) {
+      armorLayerCv.width = w;
+      armorLayerCv.height = h;
+    }
+    return armorLayerCv;
+  }
+
+  var PANEL_REG = {
+    head: { x: 0.5, y: 0.14, rx: 0.26, ry: 0.15 },
+    torso: { x: 0.5, y: 0.42, rx: 0.3, ry: 0.2 },
+    armF: { x: 0.8, y: 0.44, rx: 0.18, ry: 0.2 },
+    armB: { x: 0.2, y: 0.44, rx: 0.16, ry: 0.2 },
+    legs: { x: 0.5, y: 0.82, rx: 0.28, ry: 0.18 },
+  };
+
+  function panelSeed(f, name) {
+    var s = 2166136261;
+    var str = String(f.id || "r") + name;
+    for (var i = 0; i < str.length; i++) s = Math.imul(s ^ str.charCodeAt(i), 16777619);
+    return s >>> 0;
+  }
+  function prand(seed, n) {
+    var x = (seed + n * 374761393) >>> 0;
+    x = Math.imul(x ^ (x >>> 16), 2246822519);
+    x = Math.imul(x ^ (x >>> 13), 3266489917);
+    return ((x ^ (x >>> 16)) >>> 0) / 4294967296;
+  }
+
+  function fillGuts(ctx, cx, cy, rx, ry, seed) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.fillStyle = "#12151b";
+    ctx.fillRect(cx - rx, cy - ry, rx * 2, ry * 2);
+    ctx.strokeStyle = "#6b7280";
+    ctx.lineWidth = 2.5;
+    var i, c;
+    for (i = -3; i <= 3; i++) {
+      ctx.beginPath();
+      ctx.moveTo(cx - rx * 0.75, cy + i * ry * 0.18);
+      ctx.lineTo(cx + rx * 0.75, cy + i * ry * 0.18);
+      ctx.stroke();
+    }
+    var cols = ["#b91c1c", "#1d4ed8", "#ca8a04"];
+    for (c = 0; c < 6; c++) {
+      ctx.strokeStyle = cols[c % 3];
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(cx - rx * 0.55, cy - ry * 0.7 + c * ry * 0.2);
+      ctx.quadraticCurveTo(cx + (prand(seed, c) - 0.5) * rx, cy, cx + rx * 0.5, cy + ry * 0.55);
+      ctx.stroke();
+    }
+    ctx.fillStyle = "rgba(251,146,60,0.7)";
+    ctx.beginPath();
+    ctx.arc(cx + rx * 0.08, cy, Math.max(3, rx * 0.12), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function punchHoles(ctx, f, w, h) {
+    var name, r, lv, s, n, ox, oy;
+    ctx.save();
+    ctx.globalCompositeOperation = "destination-out";
+    for (name in PANEL_REG) {
+      lv = (f.panels && f.panels[name]) || 0;
+      if (lv < 3) continue;
+      r = PANEL_REG[name];
+      s = panelSeed(f, name);
+      for (n = 0; n < 3; n++) {
+        ox = (prand(s, n) - 0.5) * r.rx * w * 0.5;
+        oy = (prand(s, n + 9) - 0.5) * r.ry * h * 0.5;
+        ctx.beginPath();
+        ctx.ellipse(r.x * w + ox, r.y * h + oy, r.rx * w * (0.72 + n * 0.12), r.ry * h * (0.62 + n * 0.1), 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawDents(ctx, f, w, h) {
+    var name, r, lv, s, n, x0, y0;
+    for (name in PANEL_REG) {
+      lv = (f.panels && f.panels[name]) || 0;
+      if (lv < 1 || lv >= 3) continue;
+      r = PANEL_REG[name];
+      s = panelSeed(f, name);
+      ctx.save();
+      ctx.globalCompositeOperation = "source-atop";
+      ctx.fillStyle = lv >= 2 ? "rgba(20,12,8,0.45)" : "rgba(30,20,12,0.28)";
+      ctx.beginPath();
+      ctx.ellipse(r.x * w, r.y * h, r.rx * w * 0.85, r.ry * h * 0.8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(10,8,6,0.75)";
+      ctx.lineWidth = lv >= 2 ? 2.2 : 1.3;
+      for (n = 0; n < (lv >= 2 ? 5 : 3); n++) {
+        x0 = r.x * w + (prand(s, n) - 0.5) * r.rx * w * 1.4;
+        y0 = r.y * h + (prand(s, n + 4) - 0.5) * r.ry * h * 1.4;
+        ctx.beginPath();
+        ctx.moveTo(x0, y0);
+        ctx.lineTo(x0 + (prand(s, n + 8) - 0.5) * 18, y0 + (prand(s, n + 12) - 0.3) * 16);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+
+  function drawGutsForGone(ctx, f, w, h) {
+    var name, r, lv;
+    for (name in PANEL_REG) {
+      lv = (f.panels && f.panels[name]) || 0;
+      if (lv < 3) continue;
+      r = PANEL_REG[name];
+      fillGuts(ctx, r.x * w, r.y * h, r.rx * w, r.ry * h, panelSeed(f, name));
+    }
+  }
+
   function drawSpriteRobot(ctx, f, t) {
     const img = f.skipCut ? f.spriteImg : cutOutBg(f.spriteImg);
     const scale = f.drawScale || 1;
     const state = f.state || "idle";
     const atk = f.attack;
-    let bob = Math.sin(t * 5 + (f.phase || 0)) * (state === "walk" ? 3 : 1.4);
-    let lean = 0;
+    const walking = state === "walk";
+    const stride = Math.sin(t * 8 + (f.phase || 0));
+    let bob = Math.sin(t * 5 + (f.phase || 0)) * (walking ? 5.5 : 1.4);
+    if (walking) bob += Math.abs(stride) * 7;
+    let lean = walking ? stride * 4 : 0;
     let punchReach = 0;
-    if (state === "jump") bob = -10;
+    if (state === "jump") bob = -12;
     if (state === "block") lean = -6;
     if (state === "hit" || state === "stun") lean = -f.facing * 8;
     if (state === "ko") lean = 18;
@@ -634,7 +761,7 @@
       const u = atk.t;
       if (u >= atk.wind && u < atk.wind + atk.active) punchReach = 16;
     }
-    const targetH = (f.h || 160) * scale * (f.art ? 1.7 : 1.35);
+    const targetH = (f.h || 160) * scale * (f.art ? 1.85 : 1.35);
     const iw = img.naturalWidth || img.width;
     const ih = img.naturalHeight || img.height;
     const ratio = iw / ih;
@@ -646,13 +773,51 @@
     ctx.translate(x, y);
     ctx.scale(f.facing || 1, 1);
     if (lean) ctx.rotate(lean * 0.012);
-    ctx.drawImage(img, -dw / 2, -dh + 6, dw, dh);
+
+    const layer = getArmorLayer(dw, dh);
+    const lctx = layer.getContext("2d");
+    lctx.setTransform(1, 0, 0, 1, 0, 0);
+    lctx.clearRect(0, 0, layer.width, layer.height);
+    if (walking) {
+      lctx.drawImage(img, 0, 0, iw, ih * 0.58, 0, 0, dw, dh * 0.58);
+      lctx.save();
+      lctx.translate(dw / 2, dh * 0.58);
+      lctx.scale(1 + stride * 0.05, 1 + Math.abs(stride) * 0.07);
+      lctx.translate(-dw / 2, 0);
+      lctx.drawImage(img, 0, ih * 0.58, iw, ih * 0.42, 0, 0, dw, dh * 0.42);
+      lctx.restore();
+    } else {
+      lctx.drawImage(img, 0, 0, dw, dh);
+    }
+    punchHoles(lctx, f, dw, dh);
+    drawDents(lctx, f, dw, dh);
+
+    var destX = -dw / 2;
+    var destY = -dh + 6;
+    var skel = f.skelImg || (f.id === "oxido" ? IMAGES.oxidoSkel : null);
+    if (skel && skel.complete && skel.naturalWidth) {
+      var sk = cutOutBg(skel);
+      ctx.drawImage(sk, destX, destY, dw, dh);
+    } else {
+      ctx.save();
+      ctx.translate(destX, destY);
+      drawGutsForGone(ctx, f, dw, dh);
+      ctx.restore();
+    }
+    ctx.drawImage(layer, destX, destY, dw, dh);
     if (f.hitFlash > 0) {
       ctx.globalCompositeOperation = "source-atop";
       ctx.fillStyle = "rgba(255,255,255,0.45)";
-      ctx.fillRect(-dw / 2, -dh + 6, dw, dh);
+      ctx.fillRect(destX, destY, dw, dh);
+      ctx.globalCompositeOperation = "source-over";
     }
-    ctx.globalCompositeOperation = "source-over";
+    if (f.id === "oruga" || f.id === "caldera") {
+      var spin = t * (walking ? 14 : 1.15);
+      var wr = f.id === "oruga" ? dw * 0.085 : dw * 0.07;
+      drawWheel(ctx, -dw * 0.22, -wr + 5, wr, spin);
+      drawWheel(ctx, dw * 0.2, -wr + 5, wr, spin * 1.04);
+      if (f.id === "oruga") drawWheel(ctx, 0, -wr + 3, wr * 0.88, spin * 0.96);
+    }
     ctx.restore();
   }
 
@@ -733,9 +898,9 @@
 
     if (state === "walk") {
       const ph = t * (8 + (f.velocidad || 6) * 0.4);
-      kickRot = Math.sin(ph) * 0.55;
-      backKick = Math.sin(ph + Math.PI) * 0.55;
-      punchRot = 0.35 + Math.sin(ph + Math.PI) * 0.25;
+      kickRot = Math.sin(ph) * 1.05;
+      backKick = Math.sin(ph + Math.PI) * 1.05;
+      punchRot = 0.35 + Math.sin(ph + Math.PI) * 0.5;
     }
     if (state === "jump") {
       bob = -8;
@@ -999,6 +1164,30 @@
       ctx.restore();
     }
 
+    if (f.panels) {
+      var pr = {
+        head: { x: 0, y: headY + 20, rx: 22, ry: 18 },
+        torso: { x: 0, y: shoulderY + 30, rx: 28, ry: 24 },
+        armF: { x: b.w * 0.38, y: shoulderY + 20, rx: 16, ry: 18 },
+        armB: { x: -b.w * 0.32, y: shoulderY + 18, rx: 14, ry: 16 },
+        legs: { x: 0, y: hipY + 20, rx: 24, ry: 22 },
+      };
+      var pn, rg, lv;
+      for (pn in pr) {
+        lv = f.panels[pn] || 0;
+        rg = pr[pn];
+        if (lv >= 3) fillGuts(ctx, rg.x, rg.y, rg.rx, rg.ry, panelSeed(f, pn));
+        else if (lv >= 1) {
+          ctx.save();
+          ctx.fillStyle = lv >= 2 ? "rgba(20,12,8,0.4)" : "rgba(30,20,12,0.22)";
+          ctx.beginPath();
+          ctx.ellipse(rg.x, rg.y, rg.rx, rg.ry, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+    }
+
     // stun stars
     if (state === "stun") {
       ctx.fillStyle = "#ffe08a";
@@ -1054,17 +1243,107 @@
       p.life -= dt;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
-      p.vy += p.g * dt;
+      p.vy += (p.g || 900) * dt;
+      if (p.spin) p.rot = (p.rot || 0) + p.spin * dt;
+      if (p.bounce && p.y >= GROUND - 4) {
+        p.y = GROUND - 4;
+        p.vy *= -0.28;
+        p.vx *= 0.6;
+        p.bounce -= 1;
+      }
       if (p.life <= 0) particles.splice(i, 1);
     }
+    if (particles.length > 90) particles.splice(0, particles.length - 90);
   }
+
   function drawParticles(ctx) {
     for (const p of particles) {
-      ctx.globalAlpha = p.life / p.max;
-      ctx.fillStyle = p.color;
-      ctx.fillRect(p.x, p.y, p.size, p.size);
-      ctx.globalAlpha = 1;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, p.life / (p.max || 0.5));
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot || 0);
+      if (p.kind === "oil") {
+        ctx.fillStyle = p.color || "#1a2e12";
+        ctx.beginPath();
+        ctx.ellipse(0, 0, p.size * 0.7, p.size, 0, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (p.kind === "screw") {
+        ctx.fillStyle = "#9ca3af";
+        ctx.fillRect(-p.size * 0.4, -p.size * 0.2, p.size, p.size * 0.4);
+        ctx.fillStyle = "#6b7280";
+        ctx.beginPath();
+        ctx.arc(0, 0, p.size * 0.28, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (p.kind === "hose") {
+        ctx.strokeStyle = p.color || "#7c2d12";
+        ctx.lineWidth = p.size;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(-8, 0);
+        ctx.quadraticCurveTo(0, 6, 8, 2);
+        ctx.stroke();
+      } else if (p.kind === "shard") {
+        ctx.fillStyle = p.color || "#57534e";
+        ctx.beginPath();
+        ctx.moveTo(-p.size, -p.size * 0.4);
+        ctx.lineTo(p.size, -p.size * 0.2);
+        ctx.lineTo(p.size * 0.4, p.size);
+        ctx.lineTo(-p.size * 0.6, p.size * 0.5);
+        ctx.closePath();
+        ctx.fill();
+      } else {
+        ctx.fillStyle = p.color;
+        ctx.fillRect(0, 0, p.size, p.size);
+      }
+      ctx.restore();
     }
+    ctx.globalAlpha = 1;
+  }
+
+  function spawnDebris(def, panel, broke) {
+    var py = def.y - def.h * (panel === "head" ? 0.88 : panel === "legs" ? 0.22 : 0.52);
+    var px = def.x + def.facing * (panel === "armF" ? 28 : panel === "armB" ? -22 : 0);
+    var i, a, s;
+    burst(px, py, "#fbbf24", broke ? 16 : 8, broke ? 420 : 240);
+    burst(px, py, "#fff", broke ? 8 : 4, 260);
+    if (!broke) return;
+    particles.push({
+      kind: "shard", x: px, y: py, vx: rand(-120, 120), vy: rand(-380, -160),
+      life: 1.1, max: 1.1, size: rand(10, 18), color: "#57534e", g: 980, spin: rand(-8, 8), rot: 0, bounce: 1,
+    });
+    for (i = 0; i < 5; i++) {
+      particles.push({
+        kind: "oil", x: px + rand(-10, 10), y: py, vx: rand(-70, 70), vy: rand(-220, -40),
+        life: rand(0.7, 1.2), max: 1.2, size: rand(4, 8), color: "#1a2e12", g: 700, bounce: 1,
+      });
+    }
+    for (i = 0; i < 6; i++) {
+      particles.push({
+        kind: "screw", x: px, y: py, vx: rand(-160, 160), vy: rand(-340, -80),
+        life: rand(0.6, 1.0), max: 1.0, size: rand(4, 7), g: 980, spin: rand(-14, 14), rot: 0, bounce: 1,
+      });
+    }
+    for (i = 0; i < 2; i++) {
+      particles.push({
+        kind: "hose", x: px, y: py, vx: rand(-90, 90), vy: rand(-260, -60),
+        life: 0.9, max: 0.9, size: rand(3, 5), color: i ? "#1e3a8a" : "#7c2d12", g: 820, spin: rand(-4, 4), rot: 0, bounce: 1,
+      });
+    }
+  }
+
+  function smashPanel(def, kind) {
+    if (!def.panels) def.panels = { head: 0, torso: 0, armF: 0, armB: 0, legs: 0 };
+    var prefer = kind === "kick" ? ["legs", "torso", "armF", "head", "armB"] : ["torso", "head", "armF", "armB", "legs"];
+    var k = prefer[0];
+    var i, name;
+    for (i = 0; i < prefer.length; i++) {
+      name = prefer[i];
+      if ((def.panels[name] || 0) < 3 && Math.random() < 0.72) { k = name; break; }
+      if ((def.panels[name] || 0) < 3) k = name;
+    }
+    var before = def.panels[k] || 0;
+    def.panels[k] = Math.min(3, before + 1);
+    spawnDebris(def, k, def.panels[k] === 3 && before < 3);
   }
 
   /* ---------- fighters ---------- */
@@ -1087,10 +1366,11 @@
       resistencia: def.resistencia,
       custom: !!def.custom,
       spriteImg: def.spriteImg || null,
+      skelImg: def.skelImg || null,
       art: !!def.art,
       skipCut: !!def.skipCut,
       isPlayer,
-      x: isPlayer ? 300 : 980,
+      x: isPlayer ? 470 : 810,
       y: GROUND,
       vx: 0,
       vy: 0,
@@ -1110,6 +1390,7 @@
       drawScale: def.art ? 1 : 2,
       combo: 0,
       phase: Math.random() * 10,
+      panels: { head: 0, torso: 0, armF: 0, armB: 0, legs: 0 },
     };
   }
 
@@ -1157,6 +1438,9 @@
   }
 
   let shake = 0;
+  let camZ = 1.9;
+  let camX = 0;
+  let camY = 0;
   let hitStop = 0;
   let playerCombo = 0;
   let comboTimer = 0;
@@ -1193,6 +1477,7 @@
       hitStop = heavy ? 0.055 : 0.035;
       burst(def.x, def.y - def.h * 0.5, atk.color, 14, 380);
       burst(def.x, def.y - def.h * 0.5, "#fff", 6, 260);
+      smashPanel(def, kind);
 
       if (atk.body === "rayo" && kind === "punch" && Math.random() < 0.34) {
         def.state = "stun";
@@ -1225,6 +1510,8 @@
       sfx.ko();
       shake = 20;
       burst(def.x, def.y - 80, def.color, 28, 500);
+      smashPanel(def, "punch");
+      smashPanel(def, "kick");
     }
   }
 
@@ -2192,14 +2479,35 @@
     const ctx = actx;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, W, H);
+    if (!player || !cpu) return;
+    var mid = (player.x + cpu.x) / 2;
+    var dist = Math.abs(player.x - cpu.x);
+    var wantZ = 2.15 - Math.min(0.55, dist / 1600);
+    var pad = 170;
+    var span = dist + pad * 2;
+    if (span > W / wantZ) wantZ = W / span;
+    wantZ = Math.max(1.55, Math.min(2.28, wantZ));
+    camZ += (wantZ - camZ) * 0.12;
+    var vw = W / camZ;
+    var vh = H / camZ;
+    var tx = mid - vw / 2;
+    tx = Math.max(0, Math.min(W - vw, tx));
+    var ty = GROUND - vh * 0.84;
+    ty = Math.max(0, Math.min(H - vh, ty));
+    camX += (tx - camX) * 0.16;
+    camY += (ty - camY) * 0.16;
     ctx.save();
     if (shake > 0) {
       ctx.translate((Math.random() - 0.5) * shake * 2, (Math.random() - 0.5) * shake * 2);
     }
+    ctx.beginPath();
+    ctx.rect(0, 0, W, H);
+    ctx.clip();
+    ctx.scale(camZ, camZ);
+    ctx.translate(-camX, -camY);
     drawArena(ctx, time);
     drawParticles(ctx);
-    const order = player.y <= cpu.y ? [player, cpu] : [cpu, player];
-    // draw farther first by x if same y — actually back then front by y
+    const order = [player, cpu];
     order.sort((a, b) => a.y - b.y);
     for (const f of order) drawRobot(ctx, f, time);
     ctx.restore();

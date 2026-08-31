@@ -717,7 +717,7 @@ kbd {
   justify-content: space-between;
   align-items: flex-end;
   padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px));
-  background: linear-gradient(transparent, rgba(5, 8, 18, 0.55));
+  background: none;
   gap: 12px;
   touch-action: none;
   z-index: 40;
@@ -736,17 +736,17 @@ kbd {
   min-height: 74px;
   border: 0;
   border-radius: 18px;
-  background: rgba(30, 41, 59, 0.92);
-  color: white;
+  background: transparent;
+  color: transparent;
   font-weight: 800;
   font-size: 1rem;
-  box-shadow: 0 5px 0 #0b1220;
+  box-shadow: none;
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
 }
-.touch-btn.atk { background: rgba(154, 52, 18, 0.95); }
-.touch-btn.held { transform: translateY(2px); box-shadow: 0 2px 0 #0b1220; filter: brightness(1.25); }
+.touch-btn.atk { background: transparent; color: transparent; }
+.touch-btn.held { transform: none; box-shadow: none; filter: none; background: rgba(255,255,255,0.12); }
 .controls-bar span { display: none; }
 @media (hover: hover) and (pointer: fine) {
   .controls-bar span { display: inline; }
