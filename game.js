@@ -1569,7 +1569,7 @@
       invuln: 0,
       w: (def.w || b.w) * 2,
       h: (def.h || b.h) * 2,
-      drawScale: def.art ? 1 : 2,
+      drawScale: def.art ? 1 : (540 / b.h),
       combo: 0,
       phase: Math.random() * 10,
       panels: { head: 0, torso: 0, armF: 0, armB: 0, legs: 0 },
@@ -1595,13 +1595,20 @@
     sfx.swing(kind);
   }
 
+  function visH(f) {
+    if (f.art) return (f.h || 160) * (f.drawScale || 1) * 1.55;
+    var bd = BODY[f.body] || BODY.tanque;
+    return bd.h * (f.drawScale || 1);
+  }
+  function visW(f) {
+    if (f.art) return visH(f) * 0.52;
+    var bd = BODY[f.body] || BODY.tanque;
+    return bd.w * (f.drawScale || 1);
+  }
+
   function rangeOf(f, kind) {
-    let r = kind === "punch" ? 86 : 108;
-    if (f.body === "pesado") r += 18;
-    if (f.body === "tanque" && kind === "punch") r += 10;
-    if (f.body === "agil") r -= 4;
-    if (f.id === "oruga" || f.id === "caldera" || f.id === "hielo" || f.id === "grunt") r += 36;
-    if (f.id === "oxido") r += 70;
+    let r = visW(f) * 0.58 + (kind === "kick" ? 36 : 22);
+    if (f.id === "oxido") r += 48;
     return r;
   }
 
@@ -1612,9 +1619,9 @@
     const kind = atk.attack.kind;
     const range = rangeOf(atk, kind);
     const dx = (def.x - atk.x) * atk.facing;
-    const dy = Math.abs((atk.y - atk.h * 0.45) - (def.y - def.h * 0.45));
-    if (dx < 10 || dx > range + def.w * 0.35) return;
-    if (dy > 78) return;
+    const dy = Math.abs(atk.y - def.y);
+    if (dx < 6 || dx > range + visW(def) * 0.22) return;
+    if (dy > visH(atk) * 0.5) return;
     atk.attack.hit = true;
     applyHit(atk, def, kind);
   }
@@ -1629,7 +1636,7 @@
 
   function applyHit(atk, def, kind) {
     if (def.state === "ko") return;
-    let dmg = kind === "punch" ? 8 + atk.fuerza * 1.55 : 13 + atk.fuerza * 2.05;
+    let dmg = kind === "punch" ? 11 + atk.fuerza * 1.85 : 16 + atk.fuerza * 2.35;
     if (atk.body === "tanque" && kind === "punch") dmg *= 1.24;
     if (atk.body === "agil") dmg *= 0.9;
 
@@ -1830,8 +1837,8 @@
   }
 
   function separate(a, b) {
-    const overlap = (a.w * 0.45 + b.w * 0.45) - Math.abs(a.x - b.x);
-    const yClose = Math.abs(a.y - b.y) < 90;
+    const overlap = (visW(a) * 0.2 + visW(b) * 0.2) - Math.abs(a.x - b.x);
+    const yClose = Math.abs(a.y - b.y) < 140;
     if (overlap > 0 && yClose && a.state !== "ko" && b.state !== "ko") {
       const dir = a.x < b.x ? -1 : 1;
       a.x += dir * overlap * 0.5;
@@ -1860,7 +1867,7 @@
   }
 
   function aiInput(ai, cpu, player, dt) {
-    const input = { left: false, right: false, jump: false, punch: false, kick: false, block: false };
+    const input = { left: false, right: false, jump: false, punch: false, punchHigh: false, kick: false, block: false };
     if (cpu.state === "ko") return input;
     ai.t += dt;
     ai.think -= dt;
@@ -1872,24 +1879,19 @@
     const towardLeft = dist < 0;
     const playerSwinging = player.state === "punch" || player.state === "kick";
     const playerActive = player.attack && player.attack.t >= player.attack.wind && player.attack.t < player.attack.wind + player.attack.active;
+    const reach = rangeOf(cpu, "punch") + 28;
 
     if (ai.think <= 0) {
       ai.think = ai.delay;
       const r = Math.random();
       var lv = ai.lv || 0;
-      if (playerSwinging && ad < 150 && r < 0.32 + lv * 0.5) {
+      if (playerSwinging && ad < reach && r < 0.18 + lv * 0.25) {
         ai.intent = "block";
-        ai.blockLeft = rand(0.28, 0.45 + lv * 0.25);
-      } else if (cpu.body === "agil" && ad < 90 && cpu.hp < cpu.maxHp * 0.45 && r < 0.5) {
-        ai.intent = "retreat";
-      } else if (ad > 150) {
-        ai.intent = r < 0.1 + lv * 0.12 ? "jump" : "approach";
-      } else if (ad < 130 + lv * 20) {
-        if (r < 0.05) ai.intent = "block";
-        else if (r < 0.1 - lv * 0.05) ai.intent = "retreat";
-        else ai.intent = "attack";
-      } else {
+        ai.blockLeft = rand(0.18, 0.32 + lv * 0.15);
+      } else if (ad > reach + 20) {
         ai.intent = "approach";
+      } else {
+        ai.intent = "attack";
       }
     }
 
@@ -1909,33 +1911,16 @@
       input.right = !towardLeft;
       ai.intent = "approach";
     } else if (ai.intent === "attack") {
-      if (ad > 125) {
+      if (ad > reach) {
         input.left = towardLeft;
         input.right = !towardLeft;
       } else if (ai.cool <= 0 && (cpu.state === "idle" || cpu.state === "walk" || cpu.state === "jump" || cpu.state === "block")) {
-        if (cpu.body === "pesado") {
-          input.kick = Math.random() < 0.62;
-          input.punch = !input.kick;
-        } else if (cpu.body === "rayo") {
-          input.punch = Math.random() < 0.7;
-          input.kick = !input.punch;
-        } else if (cpu.body === "agil") {
-          input.punch = Math.random() < 0.6;
-          input.kick = !input.punch;
-          ai.intent = "retreat";
-        } else {
-          input.punch = Math.random() < 0.55;
-          input.kick = !input.punch;
-        }
-        if (ad > 118 && Math.random() < 0.38 - (ai.lv || 0) * 0.3) {
-          input.punch = false;
-          input.kick = false;
-          input.left = towardLeft;
-          input.right = !towardLeft;
-        } else if (input.punch || input.kick) {
-          ai.cool = (cpu.body === "agil" ? 0.28 : 0.42 + Math.random() * 0.18) * (1 - (ai.lv || 0) * 0.45);
-        }
-      } else if (ad > 90) {
+        var roll = Math.random();
+        if (roll < 0.28) input.punchHigh = true;
+        else if (roll < 0.62) input.punch = true;
+        else input.kick = true;
+        ai.cool = 0.22 + Math.random() * 0.12;
+      } else if (ad > 40) {
         input.left = towardLeft;
         input.right = !towardLeft;
       }
