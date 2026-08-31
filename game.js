@@ -202,6 +202,9 @@
     oxidoThigh: loadImg("assets/oxido-thigh.png"),
     oxidoFeet: loadImg("assets/oxido-feet.jpg"),
     oxidoBall: loadImg("assets/oxido-ball.png"),
+    oxidoAtkHigh: loadImg("assets/oxido-atk-high.png"),
+    oxidoAtkMid: loadImg("assets/oxido-atk-mid.png"),
+    oxidoAtkLow: loadImg("assets/oxido-atk-low.png"),
     metro: loadImg("assets/arena-metro.jpg"),
   };
   SHOP[0].thumbImg = IMAGES.orugaThumb;
@@ -223,6 +226,9 @@
   oxidoDef.partThigh = IMAGES.oxidoThigh;
   oxidoDef.partFeet = IMAGES.oxidoFeet;
   oxidoDef.partBall = IMAGES.oxidoBall;
+  oxidoDef.poseHigh = IMAGES.oxidoAtkHigh;
+  oxidoDef.poseMid = IMAGES.oxidoAtkMid;
+  oxidoDef.poseLow = IMAGES.oxidoAtkLow;
 
   const BODY = {
     tanque: { w: 96, h: 168, fist: 24, leg: 20, label: "Tanque" },
@@ -841,6 +847,41 @@
     return true;
   }
 
+  function oxidoPoseImg(f) {
+    var atk = f.attack;
+    if (!atk) return null;
+    if (f.state === "kick" || (atk.height === "low")) return f.poseLow || IMAGES.oxidoAtkLow;
+    if (atk.height === "high") return f.poseHigh || IMAGES.oxidoAtkHigh;
+    if (f.state === "punch") return f.poseMid || IMAGES.oxidoAtkMid;
+    return null;
+  }
+
+  function drawOxidoAttackPose(ctx, f, t) {
+    if (f.state !== "punch" && f.state !== "kick") return false;
+    var pose = oxidoPoseImg(f);
+    if (!pose || !pose.complete || !pose.naturalWidth) return false;
+    var im = (pose.src && pose.src.indexOf(".png") >= 0) ? pose : cutOutNearBlack(pose);
+    var iw = im.naturalWidth || im.width;
+    var ih = im.naturalHeight || im.height;
+    if (!ih) return false;
+    var dh = (f.h || 180) * (f.drawScale || 1) * 1.55;
+    var dw = dh * (iw / ih);
+    var bob = 0;
+    if (f.state === "hit") bob = 4;
+    ctx.save();
+    ctx.translate(f.x, f.y + bob);
+    ctx.scale(f.facing || 1, 1);
+    ctx.drawImage(im, -dw * 0.28, -dh + 8, dw, dh);
+    if (f.hitFlash > 0) {
+      ctx.globalCompositeOperation = "source-atop";
+      ctx.fillStyle = "rgba(255,255,255,0.35)";
+      ctx.fillRect(-dw * 0.28, -dh + 8, dw, dh);
+      ctx.globalCompositeOperation = "source-over";
+    }
+    ctx.restore();
+    return true;
+  }
+
   function drawOxidoPuppet(ctx, f, t) {
     const scale = f.drawScale || 1;
     const state = f.state || "idle";
@@ -915,9 +956,12 @@
   }
 
   function drawSpriteRobot(ctx, f, t) {
-    if (f.id === "oxido" && oxidoPartsReady(f)) {
-      drawOxidoPuppet(ctx, f, t);
-      return;
+    if (f.id === "oxido") {
+      if (drawOxidoAttackPose(ctx, f, t)) return;
+      if (oxidoPartsReady(f)) {
+        drawOxidoPuppet(ctx, f, t);
+        return;
+      }
     }
     const img = f.skipCut ? f.spriteImg : cutOutBg(f.spriteImg);
     const scale = f.drawScale || 1;
@@ -1396,6 +1440,33 @@
       });
     }
   }
+  function burstDust(x, y, facing, heavy) {
+    var n = heavy ? 22 : 12;
+    var i, smoke, col;
+    facing = facing || 1;
+    for (i = 0; i < n; i++) {
+      smoke = Math.random() < 0.48;
+      if (smoke) {
+        col = Math.random() < 0.5 ? "rgba(72,66,58,0.55)" : "rgba(120,112,100,0.42)";
+      } else {
+        col = Math.random() < 0.5 ? "#6b5344" : "#c4b49a";
+      }
+      particles.push({
+        kind: smoke ? "smoke" : "dust",
+        x: x + rand(-22, 28) * facing,
+        y: y + rand(-16, 14),
+        vx: rand(-90, 260) * facing * (0.35 + Math.random()),
+        vy: smoke ? rand(-200, -30) : rand(-360, -10),
+        life: smoke ? rand(0.5, 1.35) : rand(0.25, 0.75),
+        max: 1.35,
+        size: smoke ? rand(12, 34) : rand(3, 13),
+        color: col,
+        g: smoke ? 70 + Math.random() * 50 : 380 + Math.random() * 200,
+        spin: rand(-4, 4),
+        rot: rand(0, 6),
+      });
+    }
+  }
   function dust(x, y) {
     for (let i = 0; i < 6; i++) {
       particles.push({
@@ -1464,6 +1535,11 @@
         ctx.lineTo(p.size * 0.4, p.size);
         ctx.lineTo(-p.size * 0.6, p.size * 0.5);
         ctx.closePath();
+        ctx.fill();
+      } else if (p.kind === "dust" || p.kind === "smoke") {
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, p.size, p.size * (p.kind === "smoke" ? 0.72 : 0.55), p.rot || 0, 0, Math.PI * 2);
         ctx.fill();
       } else {
         ctx.fillStyle = p.color;
@@ -1549,6 +1625,9 @@
       partThigh: def.partThigh || null,
       partFeet: def.partFeet || null,
       partBall: def.partBall || null,
+      poseHigh: def.poseHigh || null,
+      poseMid: def.poseMid || null,
+      poseLow: def.poseLow || null,
       art: !!def.art,
       skipCut: !!def.skipCut,
       isPlayer,
@@ -1667,6 +1746,10 @@
       burst(def.x, def.y - def.h * 0.5, atk.color, 14, 380);
       burst(def.x, def.y - def.h * 0.5, "#fff", 6, 260);
       smashPanel(def, (atk.attack && atk.attack.height === "high") ? "high" : kind);
+      var hx = def.x + atk.facing * 36;
+      var hy = def.y - def.h * (kind === "kick" || (atk.attack && atk.attack.height === "low") ? 0.12 : (atk.attack && atk.attack.height === "high" ? 0.88 : 0.5));
+      burstDust(hx, hy, atk.facing, kind === "kick" || atk.id === "oxido");
+      if (atk.id === "oxido") burstDust(hx + atk.facing * 24, hy, atk.facing, true);
 
       if (atk.body === "rayo" && kind === "punch" && Math.random() < 0.34) {
         def.state = "stun";
