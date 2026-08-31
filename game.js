@@ -201,6 +201,7 @@
     oxidoTorso: loadImg("assets/oxido-torso.jpg"),
     oxidoThigh: loadImg("assets/oxido-thigh.jpg"),
     oxidoFeet: loadImg("assets/oxido-feet.jpg"),
+    oxidoBall: loadImg("assets/oxido-ball.png"),
     metro: loadImg("assets/arena-metro.jpg"),
   };
   SHOP[0].thumbImg = IMAGES.orugaThumb;
@@ -221,6 +222,7 @@
   oxidoDef.partTorso = IMAGES.oxidoTorso;
   oxidoDef.partThigh = IMAGES.oxidoThigh;
   oxidoDef.partFeet = IMAGES.oxidoFeet;
+  oxidoDef.partBall = IMAGES.oxidoBall;
 
   const BODY = {
     tanque: { w: 96, h: 168, fist: 24, leg: 20, label: "Tanque" },
@@ -745,6 +747,80 @@
     }
   }
 
+
+  function cutOutNearBlack(img) {
+    if (!img || !img.complete || !img.naturalWidth) return img;
+    if (img._cutDark) return img._cutDark;
+    var w = img.naturalWidth, h = img.naturalHeight;
+    var maxW = 640;
+    var sc = w > maxW ? maxW / w : 1;
+    var cw = Math.max(2, Math.round(w * sc));
+    var ch = Math.max(2, Math.round(h * sc));
+    var c = document.createElement("canvas");
+    c.width = cw; c.height = ch;
+    var cx = c.getContext("2d");
+    cx.drawImage(img, 0, 0, cw, ch);
+    var data = cx.getImageData(0, 0, cw, ch);
+    var d = data.data;
+    function dark(x, y) {
+      var i = (y * cw + x) * 4;
+      return d[i] < 22 && d[i + 1] < 22 && d[i + 2] < 22;
+    }
+    var seen = new Uint8Array(cw * ch);
+    var stack = [];
+    function push(x, y) {
+      if (x < 0 || y < 0 || x >= cw || y >= ch) return;
+      var p = y * cw + x;
+      if (seen[p] || !dark(x, y)) return;
+      seen[p] = 1;
+      stack.push(p);
+    }
+    var x, y, p, xx, yy;
+    for (x = 0; x < cw; x++) { push(x, 0); push(x, ch - 1); }
+    for (y = 0; y < ch; y++) { push(0, y); push(cw - 1, y); }
+    while (stack.length) {
+      p = stack.pop();
+      xx = p % cw; yy = (p / cw) | 0;
+      d[p * 4 + 3] = 0;
+      push(xx - 1, yy); push(xx + 1, yy); push(xx, yy - 1); push(xx, yy + 1);
+    }
+    cx.putImageData(data, 0, 0);
+    img._cutDark = c;
+    return c;
+  }
+
+  function attackK(atk) {
+    if (!atk) return 0;
+    var u = atk.t;
+    if (u < atk.wind) return (u / Math.max(0.01, atk.wind)) * 0.35;
+    if (u < atk.wind + atk.active) return 0.35 + 0.65 * Math.min(1, (u - atk.wind) / Math.max(0.01, atk.active));
+    return Math.max(0, 1 - (u - atk.wind - atk.active) / Math.max(0.01, atk.rec));
+  }
+
+  function drawOxidoBall(ctx, f, t, dw, dh, state, atk) {
+    var src = f.partBall || IMAGES.oxidoBall;
+    if (!src || !src.complete || !src.naturalWidth) return;
+    var im = cutOutNearBlack(src);
+    var k = 0;
+    var ang = 0.55 + Math.sin(t * 2.4 + (f.phase || 0)) * 0.12;
+    if (state === "punch" && atk) {
+      k = attackK(atk);
+      ang = atk.height === "high" ? 0.55 - k * 1.55 : 0.55 - k * 1.25;
+    } else if (state === "kick" && atk) {
+      k = attackK(atk);
+      ang = 0.55 + k * 0.95;
+    }
+    var bh = dh * (0.48 + k * 0.18);
+    var iw = im.width || im.naturalWidth;
+    var ih = im.height || im.naturalHeight;
+    var bw = bh * (iw / ih);
+    ctx.save();
+    ctx.translate(dw * 0.18, -dh * 0.4);
+    ctx.rotate(ang);
+    ctx.drawImage(im, -bw * 0.22, -4, bw, bh);
+    ctx.restore();
+  }
+
   function blitPart(ctx, img, cx, bottomY, h) {
     if (!img || !img.complete || !img.naturalWidth) return;
     var im = cutOutBg(img);
@@ -833,6 +909,7 @@
       ctx.fillRect(destX, destY, dw, dh);
       ctx.globalCompositeOperation = "source-over";
     }
+    drawOxidoBall(ctx, f, t, dw, dh, state, atk);
     ctx.restore();
   }
 
@@ -1470,6 +1547,7 @@
       partTorso: def.partTorso || null,
       partThigh: def.partThigh || null,
       partFeet: def.partFeet || null,
+      partBall: def.partBall || null,
       art: !!def.art,
       skipCut: !!def.skipCut,
       isPlayer,
