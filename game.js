@@ -761,7 +761,7 @@
       const u = atk.t;
       if (u >= atk.wind && u < atk.wind + atk.active) punchReach = 16;
     }
-    const targetH = (f.h || 160) * scale * (f.art ? 1.85 : 1.35);
+    const targetH = (f.h || 160) * scale * (f.art ? 1.55 : 1.2);
     const iw = img.naturalWidth || img.width;
     const ih = img.naturalHeight || img.height;
     const ratio = iw / ih;
@@ -810,13 +810,6 @@
       ctx.fillStyle = "rgba(255,255,255,0.45)";
       ctx.fillRect(destX, destY, dw, dh);
       ctx.globalCompositeOperation = "source-over";
-    }
-    if (f.id === "oruga" || f.id === "caldera") {
-      var spin = t * (walking ? 14 : 1.15);
-      var wr = f.id === "oruga" ? dw * 0.085 : dw * 0.07;
-      drawWheel(ctx, -dw * 0.22, -wr + 5, wr, spin);
-      drawWheel(ctx, dw * 0.2, -wr + 5, wr, spin * 1.04);
-      if (f.id === "oruga") drawWheel(ctx, 0, -wr + 3, wr * 0.88, spin * 0.96);
     }
     ctx.restore();
   }
@@ -1438,7 +1431,7 @@
   }
 
   let shake = 0;
-  let camZ = 1.9;
+  let camZ = 1.12;
   let camX = 0;
   let camY = 0;
   let hitStop = 0;
@@ -2482,18 +2475,25 @@
     if (!player || !cpu) return;
     var mid = (player.x + cpu.x) / 2;
     var dist = Math.abs(player.x - cpu.x);
-    var wantZ = 2.15 - Math.min(0.55, dist / 1600);
-    var pad = 170;
+    function botH(f) {
+      return (f.h || 160) * (f.drawScale || 1) * (f.art ? 1.55 : 1.2) + 24;
+    }
+    var tall = Math.max(botH(player), botH(cpu));
+    var needH = tall + 110;
+    var wantZ = Math.min(1.22, H / needH);
+    var pad = 160;
     var span = dist + pad * 2;
     if (span > W / wantZ) wantZ = W / span;
-    wantZ = Math.max(1.55, Math.min(2.28, wantZ));
-    camZ += (wantZ - camZ) * 0.12;
+    wantZ = Math.max(1.0, Math.min(1.22, wantZ));
+    camZ += (wantZ - camZ) * 0.18;
     var vw = W / camZ;
     var vh = H / camZ;
     var tx = mid - vw / 2;
     tx = Math.max(0, Math.min(W - vw, tx));
-    var ty = GROUND - vh * 0.84;
-    ty = Math.max(0, Math.min(H - vh, ty));
+    var ty = GROUND - tall - 50;
+    ty = Math.max(0, Math.min(Math.max(0, GROUND + 80 - vh), ty));
+    if (ty + vh < GROUND + 40) ty = GROUND + 40 - vh;
+    ty = Math.max(0, ty);
     camX += (tx - camX) * 0.16;
     camY += (ty - camY) * 0.16;
     ctx.save();
