@@ -725,7 +725,7 @@
       s = panelSeed(f, name);
       ctx.save();
       ctx.globalCompositeOperation = "source-atop";
-      ctx.fillStyle = lv >= 2 ? "rgba(20,12,8,0.45)" : "rgba(30,20,12,0.28)";
+      ctx.fillStyle = lv >= 2 ? "rgba(20,12,8,0.62)" : "rgba(30,20,12,0.4)";
       ctx.beginPath();
       ctx.ellipse(r.x * w, r.y * h, r.rx * w * 0.85, r.ry * h * 0.8, 0, 0, Math.PI * 2);
       ctx.fill();
@@ -856,28 +856,88 @@
     return null;
   }
 
+  function cutOxidoImg(img) {
+    if (!img) return img;
+    var src = img.src || "";
+    if (src.indexOf(".png") >= 0) return (img.naturalWidth && src.indexOf("esqueleto") >= 0) ? cutOutNearBlack(img) : img;
+    return cutOutBg(img);
+  }
+
+  function drawDamagedOxido(ctx, f, raw, ox, oy, dw, dh) {
+    var skel = f.skelImg || IMAGES.oxidoSkel;
+    if (skel && skel.complete && skel.naturalWidth) {
+      var sk = cutOutNearBlack(skel);
+      ctx.drawImage(sk, ox, oy, dw, dh);
+    } else {
+      ctx.save();
+      ctx.translate(ox, oy);
+      drawGutsForGone(ctx, f, dw, dh);
+      ctx.restore();
+    }
+    var im = cutOxidoImg(raw);
+    var layer = getArmorLayer(dw, dh);
+    var lctx = layer.getContext("2d");
+    lctx.setTransform(1, 0, 0, 1, 0, 0);
+    lctx.clearRect(0, 0, layer.width, layer.height);
+    lctx.drawImage(im, 0, 0, dw, dh);
+    punchHoles(lctx, f, dw, dh);
+    if (f.headLost) {
+      lctx.save();
+      lctx.globalCompositeOperation = "destination-out";
+      lctx.beginPath();
+      lctx.ellipse(dw * 0.5, dh * 0.12, dw * 0.28, dh * 0.16, 0, 0, Math.PI * 2);
+      lctx.fill();
+      lctx.restore();
+    }
+    drawDents(lctx, f, dw, dh);
+    ctx.drawImage(layer, ox, oy, dw, dh);
+    if (f.hitFlash > 0) {
+      ctx.globalCompositeOperation = "source-atop";
+      ctx.fillStyle = "rgba(255,255,255,0.35)";
+      ctx.fillRect(ox, oy, dw, dh);
+      ctx.globalCompositeOperation = "source-over";
+    }
+  }
+
   function drawOxidoAttackPose(ctx, f, t) {
+    if (f.exploded) return true;
     if (f.state !== "punch" && f.state !== "kick") return false;
     var pose = oxidoPoseImg(f);
     if (!pose || !pose.complete || !pose.naturalWidth) return false;
-    var im = (pose.src && pose.src.indexOf(".png") >= 0) ? pose : cutOutNearBlack(pose);
+    var im = pose;
     var iw = im.naturalWidth || im.width;
     var ih = im.naturalHeight || im.height;
     if (!ih) return false;
     var dh = (f.h || 180) * (f.drawScale || 1) * 1.55;
     var dw = dh * (iw / ih);
-    var bob = 0;
-    if (f.state === "hit") bob = 4;
+    ctx.save();
+    ctx.translate(f.x, f.y);
+    ctx.scale(f.facing || 1, 1);
+    drawDamagedOxido(ctx, f, im, -dw * 0.28, -dh + 8, dw, dh);
+    ctx.restore();
+    return true;
+  }
+
+  function drawOxidoIdlePhoto(ctx, f, t) {
+    if (f.exploded) return true;
+    var pose = f.spriteImg;
+    if (f.state === "block" && f.poseBlock && f.poseBlock.complete && f.poseBlock.naturalWidth) pose = f.poseBlock;
+    if (!pose || !pose.complete || !pose.naturalWidth) return false;
+    var im = cutOxidoImg(pose);
+    var iw = im.naturalWidth || im.width;
+    var ih = im.naturalHeight || im.height;
+    if (!ih) return false;
+    var walking = f.state === "walk";
+    var bob = Math.sin(t * 5 + (f.phase || 0)) * (walking ? 5 : 1.3);
+    if (f.state === "hit") bob += 6;
+    var dh = (f.h || 180) * (f.drawScale || 1) * 1.55;
+    var dw = dh * (iw / ih);
+    var lean = f.state === "block" ? -8 : (walking ? Math.sin(t * 7) * 3 : 0);
     ctx.save();
     ctx.translate(f.x, f.y + bob);
     ctx.scale(f.facing || 1, 1);
-    ctx.drawImage(im, -dw * 0.28, -dh + 8, dw, dh);
-    if (f.hitFlash > 0) {
-      ctx.globalCompositeOperation = "source-atop";
-      ctx.fillStyle = "rgba(255,255,255,0.35)";
-      ctx.fillRect(-dw * 0.28, -dh + 8, dw, dh);
-      ctx.globalCompositeOperation = "source-over";
-    }
+    if (lean) ctx.rotate(lean * 0.012);
+    drawDamagedOxido(ctx, f, pose, -dw / 2, -dh + 6, dw, dh);
     ctx.restore();
     return true;
   }
@@ -957,7 +1017,9 @@
 
   function drawSpriteRobot(ctx, f, t) {
     if (f.id === "oxido") {
+      if (f.exploded) return;
       if (drawOxidoAttackPose(ctx, f, t)) return;
+      if (drawOxidoIdlePhoto(ctx, f, t)) return;
       if (oxidoPartsReady(f)) {
         drawOxidoPuppet(ctx, f, t);
         return;
@@ -1091,6 +1153,7 @@
   }
 
   function drawRobot(ctx, f, t) {
+    if (f.exploded) return;
     if (f.spriteImg && f.spriteImg.complete && f.spriteImg.naturalWidth) {
       drawSpriteRobot(ctx, f, t);
       return;
@@ -1596,7 +1659,45 @@
     }
     var before = def.panels[k] || 0;
     def.panels[k] = Math.min(3, before + 1);
-    spawnDebris(def, k, def.panels[k] === 3 && before < 3);
+    spawnDebris(def, k, true);
+    if (k === "head" && def.panels.head >= 3 && !def.headLost) {
+      def.headLost = true;
+      particles.push({
+        kind: "shard", x: def.x, y: def.y - def.h * 0.85,
+        vx: rand(-80, 80), vy: rand(-420, -180),
+        life: 1.6, max: 1.6, size: rand(16, 26), color: "#57534e",
+        g: 980, spin: rand(-10, 10), rot: 0, bounce: 2,
+      });
+      burstDust(def.x, def.y - def.h * 0.85, def.facing, true);
+    }
+  }
+
+  function explodeFighter(f) {
+    if (f.exploded) return;
+    f.exploded = true;
+    var i;
+    for (i = 0; i < 20; i++) {
+      particles.push({
+        kind: "shard",
+        x: f.x + rand(-40, 40),
+        y: f.y - rand(10, f.h || 160),
+        vx: rand(-280, 280),
+        vy: rand(-520, -80),
+        life: rand(0.9, 1.8),
+        max: 1.8,
+        size: rand(8, 22),
+        color: i % 3 === 0 ? "#7c2d12" : "#57534e",
+        g: 980,
+        spin: rand(-12, 12),
+        rot: rand(0, 4),
+        bounce: 2,
+      });
+    }
+    burstDust(f.x, f.y - (f.h || 120) * 0.5, f.facing || 1, true);
+    burstDust(f.x, f.y - 20, f.facing || 1, true);
+    spawnDebris(f, "torso", true);
+    spawnDebris(f, "head", true);
+    spawnDebris(f, "legs", true);
   }
 
   /* ---------- fighters ---------- */
@@ -1652,6 +1753,9 @@
       combo: 0,
       phase: Math.random() * 10,
       panels: { head: 0, torso: 0, armF: 0, armB: 0, legs: 0 },
+      headLost: false,
+      exploded: false,
+      poseBlock: def.poseBlock || null,
     };
   }
 
@@ -1719,13 +1823,13 @@
     if (atk.body === "tanque" && kind === "punch") dmg *= 1.24;
     if (atk.body === "agil") dmg *= 0.9;
 
-    const blocking = def.blocking && def.state !== "hit" && def.state !== "stun" && def.state !== "ko";
+    const blocking = def.blocking && def.state !== "hit" && def.state !== "stun" && def.state !== "ko" && def.state !== "punch" && def.state !== "kick";
     if (blocking) {
-      dmg *= atk.body === "rayo" ? 0.42 : 0.26;
+      dmg = 0;
       sfx.block();
-      burst(def.x + def.facing * -20, def.y - def.h * 0.55, "#cbd5e1", 8, 220);
-      def.vx = atk.facing * (90 + atk.fuerza * 8);
-      shake = Math.max(shake, 6);
+      burst(def.x + def.facing * -18, def.y - def.h * 0.55, "#cbd5e1", 10, 200);
+      def.vx = atk.facing * 40;
+      shake = Math.max(shake, 4);
     } else {
       const heavy = kind === "kick" || atk.body === "pesado" || atk.body === "tanque";
       sfx.hit(heavy);
@@ -1784,6 +1888,7 @@
       burst(def.x, def.y - 80, def.color, 28, 500);
       smashPanel(def, "punch");
       smashPanel(def, "kick");
+      explodeFighter(def);
     }
   }
 
@@ -1876,12 +1981,18 @@
       return;
     }
 
-    // movement — attacks and jump cancel block (easier for kids)
-    f.blocking = !!(input.block && f.onGround && !input.punch && !input.kick && !input.jump);
-    if (f.blocking) {
+    var goingBack = (f.facing === 1 && input.left && !input.right) || (f.facing === -1 && input.right && !input.left) || (!!input.block && f.onGround);
+    var goingFwd = (f.facing === 1 && input.right && !input.left) || (f.facing === -1 && input.left && !input.right);
+    var attacking = !!(input.punch || input.punchHigh || input.kick);
+    if (goingBack && f.onGround && f.state !== "punch" && f.state !== "kick") {
+      attacking = false;
+      input.punch = input.punchHigh = input.kick = false;
+      f.blocking = true;
       f.state = "block";
-      f.vx *= Math.pow(0.01, dt);
+      var bspd = speedOf(f) * 0.72;
+      f.vx = f.facing === 1 ? -bspd : bspd;
     } else {
+      f.blocking = false;
       const spd = speedOf(f) * (f.onGround ? 1 : 0.55);
       if (input.left) f.vx = -spd;
       else if (input.right) f.vx = spd;
@@ -1897,8 +2008,9 @@
       if (input.punchHigh) startAttack(f, "punch", "high");
       else if (input.punch) startAttack(f, "punch", "mid");
       else if (input.kick) startAttack(f, "kick");
-      else if (!f.blocking) {
+      else {
         if (!f.onGround) f.state = "jump";
+        else if (goingFwd && Math.abs(f.vx) > 30) f.state = "walk";
         else if (Math.abs(f.vx) > 30) f.state = "walk";
         else f.state = "idle";
       }
