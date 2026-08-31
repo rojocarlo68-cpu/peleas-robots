@@ -198,8 +198,8 @@
     oxidoFight: loadImg("assets/fight-oxido.jpg"),
     oxidoSkel: loadImg("assets/oxido-esqueleto.png"),
     oxidoHead: loadImg("assets/oxido-head.jpg"),
-    oxidoTorso: loadImg("assets/oxido-torso.jpg"),
-    oxidoThigh: loadImg("assets/oxido-thigh.jpg"),
+    oxidoTorso: loadImg("assets/oxido-torso.png"),
+    oxidoThigh: loadImg("assets/oxido-thigh.png"),
     oxidoFeet: loadImg("assets/oxido-feet.jpg"),
     oxidoBall: loadImg("assets/oxido-ball.png"),
     metro: loadImg("assets/arena-metro.jpg"),
@@ -823,9 +823,10 @@
 
   function blitPart(ctx, img, cx, bottomY, h) {
     if (!img || !img.complete || !img.naturalWidth) return;
-    var im = cutOutBg(img);
-    var iw = im.width || im.naturalWidth;
-    var ih = im.height || im.naturalHeight;
+    var src = img.src || "";
+    var im = (src.indexOf(".png") >= 0) ? img : cutOutBg(img);
+    var iw = im.naturalWidth || im.width;
+    var ih = im.naturalHeight || im.height;
     if (!ih) return;
     var dw = h * (iw / ih);
     ctx.drawImage(im, cx - dw / 2, bottomY - h, dw, h);
@@ -886,18 +887,18 @@
     if (state === "kick" && atk && atk.t >= atk.wind) kickAng = 0.55;
     lctx.save();
     lctx.rotate(hip + kickAng);
-    blitPart(lctx, f.partFeet, 8, 0, dh * 0.3);
-    blitPart(lctx, f.partThigh, 4, -dh * 0.22, dh * 0.34);
+    blitPart(lctx, f.partFeet, 6, 0, dh * 0.28);
+    blitPart(lctx, f.partThigh, 2, -dh * 0.24, dh * 0.36);
     lctx.restore();
 
     lctx.save();
     lctx.translate(punchReach * 0.4, 0);
-    blitPart(lctx, f.partTorso, 0, -dh * 0.48, dh * 0.4);
+    blitPart(lctx, f.partTorso, 0, -dh * 0.52, dh * 0.42);
     lctx.restore();
 
     var headBob = walking ? stride * 3 : 0;
     if (state === "punch" && atk && atk.height === "high") headBob -= 10;
-    blitPart(lctx, f.partHead, 2, -dh * 0.78 + headBob, dh * 0.26);
+    blitPart(lctx, f.partHead, 2, -dh * 0.84 + headBob, dh * 0.24);
     lctx.restore();
 
     punchHoles(lctx, f, dw, dh);
