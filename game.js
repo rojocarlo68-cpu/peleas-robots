@@ -961,13 +961,8 @@
   function cutOxidoImg(img) {
     if (!img) return img;
     var src = img.src || "";
-    // PNG poses already have edge bg removed; only flood-cut jpg idle / skeleton.
-    // Never use cutOutBg here — it eats dark armor and the iron ball.
-    if (src.indexOf(".png") >= 0) {
-      if (src.indexOf("esqueleto") >= 0) return cutOutNearBlack(img);
-      return img;
-    }
-    return cutOutNearBlack(img);
+    if (src.indexOf(".png") >= 0) return (img.naturalWidth && src.indexOf("esqueleto") >= 0) ? cutOutNearBlack(img) : img;
+    return cutOutBg(img);
   }
 
   function drawDamagedOxido(ctx, f, raw, ox, oy, dw, dh) {
