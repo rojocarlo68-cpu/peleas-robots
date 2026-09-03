@@ -195,7 +195,8 @@
     gruntThumb: loadImg("assets/thumb-grunt.jpg"),
     gruntFight: loadImg("assets/fight-grunt.jpg"),
     oxidoThumb: loadImg("assets/thumb-oxido.jpg"),
-    oxidoFight: loadImg("assets/fight-oxido.jpg"),
+    oxidoFight: loadImg("assets/oxido-idle.png"),
+    oxidoIdle: loadImg("assets/oxido-idle.png"),
     oxidoIdleD1: loadImg("assets/oxido-idle-d1.png"),
     oxidoIdleD2: loadImg("assets/oxido-idle-d2.png"),
     oxidoIdleD3: loadImg("assets/oxido-idle-d3.png"),
@@ -911,13 +912,14 @@
   function oxidoIdlePainted(f) {
     if (!f) return false;
     if (f.state === "punch" || f.state === "kick") return false;
-    return oxidoStage(f) >= 1 && !!(readyImg(IMAGES.oxidoIdleD1) || readyImg(IMAGES.oxidoIdleD2) || readyImg(IMAGES.oxidoIdleD3));
+    return !!(readyImg(IMAGES.oxidoIdle) || readyImg(IMAGES.oxidoIdleD1) || readyImg(IMAGES.oxidoIdleD2) || readyImg(IMAGES.oxidoIdleD3));
   }
   function oxidoIdleImg(f) {
     var st = oxidoStage(f);
     if (st >= 3 && readyImg(IMAGES.oxidoIdleD3)) return IMAGES.oxidoIdleD3;
     if (st >= 2 && readyImg(IMAGES.oxidoIdleD2)) return IMAGES.oxidoIdleD2;
     if (st >= 1 && readyImg(IMAGES.oxidoIdleD1)) return IMAGES.oxidoIdleD1;
+    if (readyImg(IMAGES.oxidoIdle)) return IMAGES.oxidoIdle;
     return null;
   }
   function readyImg(im) {
@@ -1035,8 +1037,8 @@
     if (blockingPose) {
       pose = f.poseBlock;
     } else {
-      var damagedIdle = oxidoIdleImg(f);
-      if (damagedIdle) pose = damagedIdle;
+      var idlePose = oxidoIdleImg(f);
+      if (idlePose) pose = idlePose;
     }
     if (!pose || !pose.complete || !pose.naturalWidth) return false;
     var im = cutOxidoImg(pose);
