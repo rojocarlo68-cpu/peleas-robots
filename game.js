@@ -211,6 +211,9 @@
     oxidoAtkMidD2: loadImg("assets/oxido-atk-mid-d2.png"),
     oxidoAtkMidD3: loadImg("assets/oxido-atk-mid-d3.png"),
     oxidoAtkLow: loadImg("assets/oxido-atk-low.png"),
+    oxidoAtkLowD1: loadImg("assets/oxido-atk-low-d1.png"),
+    oxidoAtkLowD2: loadImg("assets/oxido-atk-low-d2.png"),
+    oxidoAtkLowD3: loadImg("assets/oxido-atk-low-d3.png"),
     oxidoSkelHigh: loadImg("assets/oxido-skel-high.png"),
     oxidoSkelMid: loadImg("assets/oxido-skel-mid.png"),
     oxidoSkelLow: loadImg("assets/oxido-skel-low.png"),
@@ -706,12 +709,13 @@
   }
 
   function jaggedBlob(ctx, cx, cy, rx, ry, seed, tag) {
-    var n = 9 + ((prand(seed, tag) * 7) | 0);
+    var n = 12 + ((prand(seed, tag) * 10) | 0);
     var i, a, j, x, y;
     ctx.beginPath();
     for (i = 0; i < n; i++) {
-      a = (i / n) * Math.PI * 2 + prand(seed, tag + i + 3) * 0.4;
-      j = 0.42 + prand(seed, tag + i + 20) * 0.85;
+      a = (i / n) * Math.PI * 2 + (prand(seed, tag + i + 3) - 0.5) * 1.1;
+      j = 0.28 + prand(seed, tag + i + 20) * 1.05;
+      if (prand(seed, tag + i + 50) < 0.18) j *= 0.35;
       x = cx + Math.cos(a) * rx * j;
       y = cy + Math.sin(a) * ry * j;
       if (i === 0) ctx.moveTo(x, y);
@@ -729,15 +733,15 @@
       if (lv < 3) continue;
       r = PANEL_REG[name];
       s = panelSeed(f, name);
-      for (n = 0; n < 5; n++) {
-        ox = (prand(s, n) - 0.5) * r.rx * w * 0.7;
-        oy = (prand(s, n + 9) - 0.5) * r.ry * h * 0.7;
+      for (n = 0; n < 8; n++) {
+        ox = (prand(s, n) - 0.5) * r.rx * w * 0.95;
+        oy = (prand(s, n + 9) - 0.5) * r.ry * h * 0.95;
         jaggedBlob(
           ctx,
           r.x * w + ox,
           r.y * h + oy,
-          r.rx * w * (0.55 + n * 0.14 + prand(s, n + 30) * 0.2),
-          r.ry * h * (0.48 + n * 0.12 + prand(s, n + 40) * 0.2),
+          r.rx * w * (0.4 + n * 0.11 + prand(s, n + 30) * 0.35),
+          r.ry * h * (0.35 + n * 0.1 + prand(s, n + 40) * 0.35),
           s,
           n * 17
         );
@@ -896,13 +900,23 @@
   function oxidoMidPainted(f) {
     return !!(f && f.state === "punch" && f.attack && f.attack.height !== "high" && f.attack.height !== "low");
   }
+  function oxidoLowPainted(f) {
+    return !!(f && f.attack && (f.state === "kick" || f.attack.height === "low"));
+  }
   function readyImg(im) {
     return im && im.complete && im.naturalWidth;
   }
   function oxidoPoseImg(f) {
     var atk = f.attack;
     if (!atk) return null;
-    if (f.state === "kick" || (atk.height === "low")) return f.poseLow || IMAGES.oxidoAtkLow;
+    if (f.state === "kick" || (atk.height === "low")) {
+      st = oxidoStage(f);
+      img = f.poseLow || IMAGES.oxidoAtkLow;
+      if (st >= 3 && readyImg(IMAGES.oxidoAtkLowD3)) img = IMAGES.oxidoAtkLowD3;
+      else if (st >= 2 && readyImg(IMAGES.oxidoAtkLowD2)) img = IMAGES.oxidoAtkLowD2;
+      else if (st >= 1 && readyImg(IMAGES.oxidoAtkLowD1)) img = IMAGES.oxidoAtkLowD1;
+      return img;
+    }
     if (atk.height === "high") {
       var st = oxidoStage(f);
       var img = f.poseHigh || IMAGES.oxidoAtkHigh;
@@ -937,7 +951,7 @@
   }
 
   function drawDamagedOxido(ctx, f, raw, ox, oy, dw, dh) {
-    var paintedHigh = oxidoHighPainted(f) || oxidoMidPainted(f);
+    var paintedHigh = oxidoHighPainted(f) || oxidoMidPainted(f) || oxidoLowPainted(f);
     if (!paintedHigh) {
       var skel = oxidoSkelPose(f);
       if (skel && skel.complete && skel.naturalWidth) {
@@ -1752,28 +1766,39 @@
     burst(px, py, "#fbbf24", broke ? (30 + (Math.random() * 36 | 0)) : (12 + (Math.random() * 18 | 0)), broke ? rand(280, 520) : rand(160, 280));
     burst(px, py, "#fff", broke ? (12 + (Math.random() * 24 | 0)) : (6 + (Math.random() * 12 | 0)), rand(180, 320));
     if (!broke) return;
-    var nShard = 3 + (Math.random() * 5 | 0);
+    var nShard = 8 + (Math.random() * 14 | 0);
     for (i = 0; i < nShard; i++) {
       particles.push({
-        kind: "shard", x: px + rand(-10, 10), y: py + rand(-8, 8), vx: rand(-220, 220), vy: rand(-480, -70),
-        life: rand(0.7, 1.6), max: 1.6, size: rand(7, 24), color: "#57534e", g: 980, spin: rand(-12, 12), rot: rand(0, 4), bounce: 1,
+        kind: "shard",
+        x: px + rand(-28, 28),
+        y: py + rand(-22, 18),
+        vx: rand(-340, 340),
+        vy: rand(-620, -40),
+        life: rand(0.55, 2.1),
+        max: 2.1,
+        size: rand(5, 34),
+        color: Math.random() < 0.35 ? "#7c2d12" : (Math.random() < 0.5 ? "#44403c" : "#57534e"),
+        g: 780 + Math.random() * 420,
+        spin: rand(-22, 22),
+        rot: rand(0, 6),
+        bounce: 1 + (Math.random() * 2 | 0),
       });
     }
-    var nOil = 9 + (Math.random() * 18 | 0);
+    var nOil = 12 + (Math.random() * 22 | 0);
     for (i = 0; i < nOil; i++) {
       particles.push({
         kind: "oil", x: px + rand(-16, 16), y: py + rand(-8, 8), vx: rand(-120, 120), vy: rand(-280, -10),
         life: rand(0.45, 1.5), max: 1.5, size: rand(3, 11), color: "#1a2e12", g: 500 + Math.random() * 400, bounce: 1,
       });
     }
-    var nScrew = 9 + (Math.random() * 24 | 0);
+    var nScrew = 14 + (Math.random() * 28 | 0);
     for (i = 0; i < nScrew; i++) {
       particles.push({
-        kind: "screw", x: px + rand(-12, 12), y: py, vx: rand(-240, 240), vy: rand(-400, -40),
-        life: rand(0.4, 1.3), max: 1.3, size: rand(3, 9), g: 980, spin: rand(-18, 18), rot: rand(0, 5), bounce: 1,
+        kind: "screw", x: px + rand(-22, 22), y: py + rand(-14, 10), vx: rand(-320, 320), vy: rand(-520, -20),
+        life: rand(0.35, 1.6), max: 1.6, size: rand(2, 11), g: 900 + Math.random() * 200, spin: rand(-28, 28), rot: rand(0, 5), bounce: 1 + (Math.random() < 0.4 ? 1 : 0),
       });
     }
-    var nHose = 3 + (Math.random() * 9 | 0);
+    var nHose = 5 + (Math.random() * 12 | 0);
     for (i = 0; i < nHose; i++) {
       particles.push({
         kind: "hose", x: px, y: py, vx: rand(-140, 140), vy: rand(-300, -20),
@@ -1800,12 +1825,23 @@
     spawnDebris(def, k, true);
     if (k === "head" && def.panels.head >= 3 && !def.headLost) {
       def.headLost = true;
-      particles.push({
-        kind: "shard", x: def.x, y: def.y - def.h * 0.85,
-        vx: rand(-80, 80), vy: rand(-420, -180),
-        life: 1.6, max: 1.6, size: rand(16, 26), color: "#57534e",
-        g: 980, spin: rand(-10, 10), rot: 0, bounce: 2,
-      });
+      for (i = 0; i < 6 + (Math.random() * 6 | 0); i++) {
+        particles.push({
+          kind: "shard",
+          x: def.x + rand(-18, 18),
+          y: def.y - def.h * 0.85 + rand(-10, 10),
+          vx: rand(-200, 200),
+          vy: rand(-520, -120),
+          life: rand(1.0, 2.0),
+          max: 2.0,
+          size: rand(10, 30),
+          color: i % 2 ? "#7c2d12" : "#57534e",
+          g: 980,
+          spin: rand(-18, 18),
+          rot: rand(0, 5),
+          bounce: 2,
+        });
+      }
       burstDust(def.x, def.y - def.h * 0.85, def.facing, true);
     }
   }
@@ -1814,7 +1850,7 @@
     if (f.exploded) return;
     f.exploded = true;
     var i;
-    for (i = 0; i < 20; i++) {
+    for (i = 0; i < 42; i++) {
       particles.push({
         kind: "shard",
         x: f.x + rand(-40, 40),
