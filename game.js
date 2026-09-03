@@ -968,8 +968,29 @@
     return img;
   }
 
+  function drawOxidoBlackSilhouette(ctx, im, ox, oy, dw, dh) {
+    var layer = getArmorLayer(dw + 12, dh + 12);
+    var lctx = layer.getContext("2d");
+    lctx.setTransform(1, 0, 0, 1, 0, 0);
+    lctx.clearRect(0, 0, layer.width, layer.height);
+    lctx.drawImage(im, 6, 6, dw, dh);
+    lctx.globalCompositeOperation = "source-in";
+    lctx.fillStyle = "#000";
+    lctx.fillRect(0, 0, layer.width, layer.height);
+    lctx.globalCompositeOperation = "source-over";
+    // fatten silhouette a bit so holes don't peek the arena
+    var i, a;
+    for (i = 0; i < 8; i++) {
+      a = (i / 8) * Math.PI * 2;
+      ctx.drawImage(layer, ox - 6 + Math.cos(a) * 3, oy - 6 + Math.sin(a) * 3);
+    }
+    ctx.drawImage(layer, ox - 6, oy - 6);
+  }
   function drawDamagedOxido(ctx, f, raw, ox, oy, dw, dh) {
     var paintedHigh = oxidoHighPainted(f) || oxidoMidPainted(f) || oxidoLowPainted(f) || oxidoIdlePainted(f) || ((f.blocking || f.state === "block") && readyImg(f.poseBlock));
+    var im = cutOxidoImg(raw);
+    // Solid black body behind so transparent dark armor never shows the arena through
+    drawOxidoBlackSilhouette(ctx, im, ox, oy, dw, dh);
     if (!paintedHigh) {
       var skel = oxidoSkelPose(f);
       if (skel && skel.complete && skel.naturalWidth) {
@@ -982,7 +1003,6 @@
         ctx.restore();
       }
     }
-    var im = cutOxidoImg(raw);
     var layer = getArmorLayer(dw, dh);
     var lctx = layer.getContext("2d");
     lctx.setTransform(1, 0, 0, 1, 0, 0);
