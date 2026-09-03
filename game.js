@@ -1617,7 +1617,7 @@
     var i, smoke, col, dir, side;
     facing = facing || 1;
     for (i = 0; i < n; i++) {
-      smoke = Math.random() < (0.32 + Math.random() * 0.4);
+      smoke = Math.random() < (0.55 + Math.random() * 0.35);
       if (smoke) {
         col = Math.random() < 0.5 ? "rgba(72,66,58,0.55)" : "rgba(120,112,100,0.42)";
       } else {
@@ -1633,7 +1633,7 @@
         vy: smoke ? rand(-260, 40) : rand(-420, 30),
         life: smoke ? rand(0.35, 1.7) : rand(0.18, 0.95),
         max: smoke ? 1.7 : 0.95,
-        size: smoke ? rand(8, 42) : rand(2, 16),
+        size: smoke ? rand(14, 58) : rand(2, 16),
         color: col,
         g: smoke ? 40 + Math.random() * 90 : 240 + Math.random() * 420,
         spin: rand(-6, 6),
@@ -1642,7 +1642,7 @@
     }
   }
   function burstHeavySmoke(x, y, facing) {
-    var n = (34 + (Math.random() * 22 | 0)) * 3;
+    var n = (34 + (Math.random() * 22 | 0)) * 5;
     var i, col, dir;
     facing = facing || 1;
     for (i = 0; i < n; i++) {
@@ -1658,9 +1658,9 @@
         vy: rand(-320, -10),
         life: rand(1.15, 2.7),
         max: 2.7,
-        size: rand(20, 64),
+        size: rand(28, 88),
         color: col,
-        g: 18 + Math.random() * 50,
+        g: 12 + Math.random() * 40,
         spin: rand(-2.4, 2.4),
         rot: rand(0, 6),
       });
@@ -1683,7 +1683,7 @@
   }
   function leakSmoke(f) {
     if (!f || !f.smoking || f.exploded) return;
-    var n = 3 + (Math.random() * 6 | 0);
+    var n = 8 + (Math.random() * 12 | 0);
     var i, col, dir;
     var x = f.x + rand(-22, 22);
     var y = f.y - (f.h || 160) * (0.35 + Math.random() * 0.5);
@@ -1700,9 +1700,9 @@
         vy: rand(-180, -20),
         life: rand(0.9, 2.4),
         max: 2.4,
-        size: rand(16, 54),
+        size: rand(22, 72),
         color: col,
-        g: 10 + Math.random() * 40,
+        g: 8 + Math.random() * 32,
         spin: rand(-1.8, 1.8),
         rot: rand(0, 6),
       });
@@ -1724,7 +1724,7 @@
       }
       if (p.life <= 0) particles.splice(i, 1);
     }
-    if (particles.length > 900) particles.splice(0, particles.length - 900);
+    if (particles.length > 1400) particles.splice(0, particles.length - 1400);
   }
 
   function drawParticles(ctx) {
@@ -3081,10 +3081,10 @@
     ctx.scale(camZ, camZ);
     ctx.translate(-camX, -camY);
     drawArena(ctx, time);
-    drawParticles(ctx);
     const order = [player, cpu];
     order.sort((a, b) => a.y - b.y);
     for (const f of order) drawRobot(ctx, f, time);
+    drawParticles(ctx);
     ctx.restore();
   }
 
