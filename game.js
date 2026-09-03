@@ -199,6 +199,7 @@
     oxidoIdleD1: loadImg("assets/oxido-idle-d1.png"),
     oxidoIdleD2: loadImg("assets/oxido-idle-d2.png"),
     oxidoIdleD3: loadImg("assets/oxido-idle-d3.png"),
+    oxidoBlock: loadImg("assets/oxido-block.png"),
     oxidoSkel: loadImg("assets/oxido-esqueleto.png"),
     oxidoHead: loadImg("assets/oxido-head.jpg"),
     oxidoTorso: loadImg("assets/oxido-torso.png"),
@@ -244,6 +245,7 @@
   oxidoDef.poseHigh = IMAGES.oxidoAtkHigh;
   oxidoDef.poseMid = IMAGES.oxidoAtkMid;
   oxidoDef.poseLow = IMAGES.oxidoAtkLow;
+  oxidoDef.poseBlock = IMAGES.oxidoBlock;
 
   const BODY = {
     tanque: { w: 96, h: 168, fist: 24, leg: 20, label: "Tanque" },
@@ -966,7 +968,7 @@
   }
 
   function drawDamagedOxido(ctx, f, raw, ox, oy, dw, dh) {
-    var paintedHigh = oxidoHighPainted(f) || oxidoMidPainted(f) || oxidoLowPainted(f) || oxidoIdlePainted(f);
+    var paintedHigh = oxidoHighPainted(f) || oxidoMidPainted(f) || oxidoLowPainted(f) || oxidoIdlePainted(f) || (f.state === "block" && !!(f.poseBlock && f.poseBlock.complete && f.poseBlock.naturalWidth));
     if (!paintedHigh) {
       var skel = oxidoSkelPose(f);
       if (skel && skel.complete && skel.naturalWidth) {
@@ -1028,9 +1030,13 @@
   function drawOxidoIdlePhoto(ctx, f, t) {
     if (f.exploded) return true;
     var pose = f.spriteImg;
-    if (f.state === "block" && f.poseBlock && f.poseBlock.complete && f.poseBlock.naturalWidth) pose = f.poseBlock;
-    var damagedIdle = oxidoIdleImg(f);
-    if (damagedIdle) pose = damagedIdle;
+    var blockingPose = f.state === "block" && f.poseBlock && f.poseBlock.complete && f.poseBlock.naturalWidth;
+    if (blockingPose) {
+      pose = f.poseBlock;
+    } else {
+      var damagedIdle = oxidoIdleImg(f);
+      if (damagedIdle) pose = damagedIdle;
+    }
     if (!pose || !pose.complete || !pose.naturalWidth) return false;
     var im = cutOxidoImg(pose);
     var iw = im.naturalWidth || im.width;
@@ -1041,7 +1047,7 @@
     if (f.state === "hit") bob += 6;
     var dh = (f.h || 180) * (f.drawScale || 1) * 1.55;
     var dw = dh * (iw / ih);
-    var lean = f.state === "block" ? -8 : (walking ? Math.sin(t * 7) * 3 : 0);
+    var lean = f.state === "block" ? 0 : (walking ? Math.sin(t * 7) * 3 : 0);
     ctx.save();
     ctx.translate(f.x, f.y + bob);
     ctx.scale(f.facing || 1, 1);
