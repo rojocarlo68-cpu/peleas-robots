@@ -963,12 +963,13 @@
   function cutOxidoImg(img) {
     if (!img) return img;
     var src = img.src || "";
-    if (src.indexOf(".png") >= 0) return (img.naturalWidth && src.indexOf("esqueleto") >= 0) ? cutOutNearBlack(img) : img;
-    return cutOutBg(img);
+    // Keep dark armor / ball. Only flood-cut the cable skeleton PNG.
+    if (src.indexOf("esqueleto") >= 0) return cutOutNearBlack(img);
+    return img;
   }
 
   function drawDamagedOxido(ctx, f, raw, ox, oy, dw, dh) {
-    var paintedHigh = oxidoHighPainted(f) || oxidoMidPainted(f) || oxidoLowPainted(f) || oxidoIdlePainted(f) || (f.state === "block" && !!(f.poseBlock && f.poseBlock.complete && f.poseBlock.naturalWidth));
+    var paintedHigh = oxidoHighPainted(f) || oxidoMidPainted(f) || oxidoLowPainted(f) || oxidoIdlePainted(f) || ((f.blocking || f.state === "block") && readyImg(f.poseBlock));
     if (!paintedHigh) {
       var skel = oxidoSkelPose(f);
       if (skel && skel.complete && skel.naturalWidth) {
@@ -1030,7 +1031,7 @@
   function drawOxidoIdlePhoto(ctx, f, t) {
     if (f.exploded) return true;
     var pose = f.spriteImg;
-    var blockingPose = f.state === "block" && f.poseBlock && f.poseBlock.complete && f.poseBlock.naturalWidth;
+    var blockingPose = (f.blocking || f.state === "block") && f.poseBlock && readyImg(f.poseBlock);
     if (blockingPose) {
       pose = f.poseBlock;
     } else {
@@ -2529,6 +2530,10 @@
     else if (id === "puerto") drawArenaPuerto(ctx);
     else drawArenaAzotea(ctx);
 
+    // ~50% darker so transparent dark armor blends better
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    ctx.fillRect(0, 0, W, H);
+
     ctx.save();
     ctx.globalAlpha = 0.22;
     ctx.fillStyle = "#fde68a";
@@ -2607,10 +2612,12 @@
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, w, h);
     if (def.thumbImg && def.thumbImg.complete && def.thumbImg.naturalWidth) {
-      const cut = cutOutBg(def.thumbImg);
-      const iw = cut.naturalWidth || cut.width, ih = cut.naturalHeight || cut.height;
-      const scale = Math.max(w / iw, h / ih);
-      ctx.drawImage(cut, (w - iw * scale) / 2, (h - ih * scale) / 2, iw * scale, ih * scale);
+      // Full robot visible (contain), no crop to belly
+      const src = (def.skipCut || def.id === "oxido" || def.art) ? def.thumbImg : cutOutBg(def.thumbImg);
+      const iw = src.naturalWidth || src.width, ih = src.naturalHeight || src.height;
+      const scale = Math.min(w / iw, h / ih) * 0.92;
+      const dw = iw * scale, dh = ih * scale;
+      ctx.drawImage(src, (w - dw) / 2, (h - dh) / 2, dw, dh);
       return;
     }
     const fake = {
@@ -2642,8 +2649,8 @@
       card.className = "card" + (selectedId === def.id ? " selected" : "");
       card.tabIndex = 0;
       const cnv = document.createElement("canvas");
-      cnv.width = 260;
-      cnv.height = 180;
+      cnv.width = 420;
+      cnv.height = 520;
       drawCardBot(cnv, def);
       const h3 = document.createElement("h3");
       h3.textContent = def.name;
